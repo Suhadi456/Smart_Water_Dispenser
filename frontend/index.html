@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Smart Water Dispenser</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Ikon vektor (bukan emoji); dekoratif -> aria-hidden pada pemakaian -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.2 6 10.5A6 6 0 0 1 6 13.5C6 9.2 12 3 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8 12.5 3 3 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-crit" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 7.5v6M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-empty" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-tare" viewBox="0 0 24 24"><path d="M12 4v3M5 20h14M7 20l1.5-9h7L17 20M9 11a3 3 0 1 1 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6 12.5a9.5 9.5 0 0 1 12 0M9 16a5 5 0 0 1 6 0M12 19.5v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 4-2.4M21 9a14 14 0 0 0-8-3M6 12.5a9.5 9.5 0 0 1 3-1.8M18 12.5a9.5 9.5 0 0 0-2.5-1.6M9 16a5 5 0 0 1 6 0M12 19.5v.01M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  </svg>
+
+  <a class="skip" href="#main">Lewati ke konten</a>
+
+  <header class="top">
+    <div class="brand">
+      <svg class="ic ic-lg" aria-hidden="true"><use href="#i-drop"/></svg>
+      <div>
+        <h1>Smart Water Dispenser</h1>
+        <p class="sub"><span id="devCode">dispenser-001</span> · Level &amp; Refill Alert</p>
+      </div>
+    </div>
+    <div class="badges" role="status" aria-live="polite">
+      <span id="conn" class="badge b-off"><svg class="ic" aria-hidden="true"><use href="#i-wifi-off"/></svg><span>MEMUAT…</span></span>
+      <span id="fresh" class="badge b-off"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>—</span></span>
+    </div>
+  </header>
+
+  <div id="banner" class="banner b-crit" role="alert" hidden></div>
+
+  <main id="main">
+    <div id="notice" class="notice" role="status" hidden></div>
+
+    <section class="cards" aria-label="Monitoring air">
+      <article class="card">
+        <h2>Volume Air</h2>
+        <p class="val"><span id="vol">--</span><span class="unit">L</span></p>
+        <p class="hint stale-tag" id="staleVol" hidden>DATA LAMA</p>
+      </article>
+      <article class="card">
+        <h2>Persentase</h2>
+        <p class="val"><span id="pct">--</span><span class="unit">%</span></p>
+        <div class="bar" aria-hidden="true"><div id="pctBar"></div></div>
+      </article>
+      <article class="card">
+        <h2>Status Air</h2>
+        <p id="status" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></p>
+      </article>
+      <article class="card">
+        <h2>Kapasitas Galon</h2>
+        <p class="val"><span id="cap">--</span><span class="unit">L</span></p>
+        <p class="hint">Diperbarui: <time id="updated">—</time></p>
+      </article>
+    </section>
+
+    <section class="panel" aria-labelledby="hChart">
+      <div class="panel-head">
+        <h2 id="hChart">Grafik Volume</h2>
+        <div class="seg" role="group" aria-label="Rentang waktu">
+          <button type="button" data-range="24h" aria-pressed="true">24 JAM</button>
+          <button type="button" data-range="7d" aria-pressed="false">7 HARI</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <svg id="chart" viewBox="0 0 640 260" role="img" aria-label="Grafik volume air"></svg>
+        <p id="chartEmpty" class="empty" hidden>Belum ada data historis pada rentang ini.</p>
+      </div>
+      <p class="legend"><span class="lg lg-line"></span> Volume (L) <span class="lg lg-cap"></span> Kapasitas saat data dicatat</p>
+    </section>
+
+    <div class="grid2">
+      <section class="panel" aria-labelledby="hGal">
+        <h2 id="hGal">Pengaturan Galon &amp; Tare</h2>
+        <form id="capForm" novalidate>
+          <fieldset>
+            <legend>Kapasitas galon</legend>
+            <label class="opt"><input type="radio" name="cap" value="5"> <span>5 L</span></label>
+            <label class="opt"><input type="radio" name="cap" value="10"> <span>10 L</span></label>
+          </fieldset>
+          <p class="note">Mengganti kapasitas mewajibkan tare ulang dengan galon kosong.</p>
+          <button type="submit" id="capBtn" class="btn">Terapkan Kapasitas</button>
+        </form>
+        <hr>
+        <p class="row">Status tare: <span id="tareBadge" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></span></p>
+        <p id="tareMsg" class="note" hidden></p>
+        <button type="button" id="tareBtn" class="btn btn-primary"><svg class="ic" aria-hidden="true"><use href="#i-tare"/></svg><span>TARE GALON KOSONG</span></button>
+      </section>
+
+      <section class="panel" aria-labelledby="hThr">
+        <h2 id="hThr">Batas Status (%)</h2>
+        <form id="thrForm" novalidate>
+          <div class="field"><label for="thH">HABIS bila ≤</label><input id="thH" type="number" inputmode="numeric" min="0" max="98" step="1" required></div>
+          <div class="field"><label for="thK">KRITIS bila ≤</label><input id="thK" type="number" inputmode="numeric" min="1" max="98" step="1" required></div>
+          <div class="field"><label for="thR">RENDAH bila ≤</label><input id="thR" type="number" inputmode="numeric" min="2" max="99" step="1" required></div>
+          <p class="note">Aturan: 0 ≤ HABIS &lt; KRITIS &lt; RENDAH &lt; 100. Di atas RENDAH = NORMAL.</p>
+          <p id="thrErr" class="err" role="alert" hidden></p>
+          <button type="submit" id="thrBtn" class="btn btn-primary">SIMPAN KONFIGURASI</button>
+        </form>
+        <p class="note warn-note">Dashboard ini tanpa login: siapa pun yang memegang URL dapat mengubah kapasitas, ambang, dan tare. Hentikan tunnel setelah demo.</p>
+      </section>
+    </div>
+  </main>
+
+  <p id="toast" class="toast" role="status" aria-live="polite" hidden></p>
+
+  <dialog id="tareDlg" aria-labelledby="tareTitle">
+    <form method="dialog" id="tareDlgForm">
+      <h2 id="tareTitle">Tare galon kosong?</h2>
+      <p>Tare menjadikan berat yang ada di timbangan sebagai <strong>titik nol</strong>. Bila galon masih berisi air, air itu akan dianggap 0 L dan semua pembacaan berikutnya salah.</p>
+      <label class="chk"><input type="checkbox" id="tareChk"> <span>Saya memastikan galon <strong>benar-benar kosong</strong> dan sudah terpasang di timbangan.</span></label>
+      <div class="actions">
+        <button type="button" id="tareCancel" class="btn">Batal</button>
+        <button type="submit" id="tareOk" class="btn btn-danger" disabled>Ya, jalankan tare</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

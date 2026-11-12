@@ -1,0 +1,26 @@
+{
+  "name": "smart-water-dispenser-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express API + MQTT Worker untuk Smart Water Dispenser",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "db:init": "node scripts/initDb.js",
+    "broker": "node scripts/devBroker.js",
+    "simulate": "node scripts/simulator.js",
+    "test": "node --test test/water.test.js",
+    "test:e2e": "node test/e2e.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "mqtt": "^5.16.1",
+    "mysql2": "^3.24.6"
+  },
+  "devDependencies": {
+    "aedes": "^1.2.0"
+  }
+}
