@@ -19,9 +19,10 @@
 #include <Preferences.h>
 
 // ======================= KONFIGURASI =======================
-#define WOKWI 1  // Komentari baris ini untuk perangkat fisik.
+#define WOKWI 0    // 0 = perangkat fisik, 1 = simulator Wokwi
+#define USE_TLS 0  // 0 = Broker lokal laptop (port 1883), 1 = EMQX Cloud (port 8883 TLS)
 
-#ifdef WOKWI
+#if WOKWI
   // Pin sesuai rangkaian Wokwi di Laporan Wokwi (Tabel 3.2).
   const int HX_DT = 16, HX_SCK = 4, LED_PIN = 12, BUZZER_PIN = 14;
   const float CAL_FACTOR = 420.0f;  // komponen wokwi-hx711 50kg: 420 unit/kg
@@ -36,12 +37,18 @@
 #endif
 const int LCD_SDA = 21, LCD_SCL = 22;
 
-// EMQX Cloud Serverless: Overview -> Connection Address / Port (TLS 8883),
-// lalu buat username & password di Access Control -> Authentication.
-const char* MQTT_HOST = "GANTI.emqxsl.com";
-const int   MQTT_PORT = 8883;
-const char* MQTT_USER = "GANTI_USERNAME";
-const char* MQTT_PASS = "GANTI_PASSWORD";
+// Jika USE_TLS = 0 (Broker Lokal):
+//  - MQTT_HOST diisi IP laptopmu (contoh: "192.168.1.15")
+//  - MQTT_PORT = 1883
+//  - MQTT_USER & MQTT_PASS cukup dikosongkan ("")
+//
+// Jika USE_TLS = 1 (EMQX Cloud):
+//  - MQTT_HOST = "xxxx.emqxsl.com", MQTT_PORT = 8883
+//  - MQTT_USER & MQTT_PASS diisi user yang dibuat di EMQX
+const char* MQTT_HOST = "192.168.1.15";  // GANTI dengan IP laptopmu (cek via ipconfig)
+const int   MQTT_PORT = 1883;
+const char* MQTT_USER = "";
+const char* MQTT_PASS = "";
 
 const char* DEVICE_ID    = "dispenser-001";
 const char* TOPIC_RAW    = "dispenser/001/raw";
@@ -52,7 +59,11 @@ const unsigned long READ_MS = 1000, PUBLISH_MS = 10000, SERVER_TIMEOUT_MS = 3000
 const float STABLE_KG = 0.05f;  // selisih maks. pembacaan saat tare dianggap stabil
 // ===========================================================
 
-WiFiClientSecure net;
+#if USE_TLS
+  WiFiClientSecure net;
+#else
+  WiFiClient net;
+#endif
 PubSubClient mqtt(net);
 HX711 scale;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -299,8 +310,10 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
+#if USE_TLS
   // shortcut: sertifikat broker tidak diverifikasi; pasang CA (net.setCACert) sebelum dipakai di luar demo.
   net.setInsecure();
+#endif
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setBufferSize(768);
   mqtt.setSocketTimeout(5);
