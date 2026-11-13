@@ -3,7 +3,7 @@
 
 const LEVEL = { HABIS: 0, KRITIS: 1, RENDAH: 2, NORMAL: 3 };
 const HYSTERESIS_PCT = 1;     // Bab 5.5: 1 poin persentase saat kembali ke level lebih baik
-const CONFIRM_SAMPLES = 2;    // Bab 5.5: dua sampel berurutan untuk perubahan status
+const CONFIRM_SAMPLES = Number(process.env.CONFIRM_SAMPLES) || 1;    // 1 agar status instan (dapat diubah ke 2 jika ingin noise filter ekstra)
 const ANOMALY_MARGIN_KG = 1;  // asumsi: berat > kapasitas+1 kg atau < -1 kg dianggap anomali (Bab 5.4 hanya bilang "selisih signifikan")
 
 const ACTUATORS = {

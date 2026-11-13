@@ -1,4 +1,5 @@
 'use strict';
+process.env.CONFIRM_SAMPLES = '2';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const w = require('../waterService');
