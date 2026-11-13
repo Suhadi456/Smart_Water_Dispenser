@@ -4,7 +4,7 @@
 const mqtt = require('mqtt');
 const config = require('../config');
 
-function createSimulator({ url = config.mqtt.url, prefix = config.topicPrefix, deviceId = config.deviceCode, intervalMs = 10000 } = {}) {
+function createSimulator({ url = config.mqtt.url, prefix = config.topicPrefix, deviceId = config.deviceCode, intervalMs = 2000 } = {}) {
   const T = { raw: `${prefix}/raw`, status: `${prefix}/status`, avail: `${prefix}/availability` };
   const bootId = Math.floor(Math.random() * 0xffff).toString(16).toUpperCase().padStart(4, '0');
   const sim = {
@@ -67,6 +67,7 @@ function createSimulator({ url = config.mqtt.url, prefix = config.topicPrefix, d
   const timer = setInterval(publishRaw, intervalMs);
   return Object.assign(sim, {
     client,
+    publishNow: publishRaw,
     stop: () => { clearInterval(timer); return new Promise((r) => client.end(false, {}, r)); },
     crash: () => { clearInterval(timer); client.stream.destroy(); }, // putus tanpa DISCONNECT -> broker kirim LWT
   });
@@ -77,9 +78,9 @@ if (require.main === module) {
   console.log('Simulator ESP32. Perintah: w <kg> | err | ok | failtare | crash | q');
   require('readline').createInterface({ input: process.stdin }).on('line', (line) => {
     const [c, v] = line.trim().split(/\s+/);
-    if (c === 'w') sim.weight = Number(v);
-    else if (c === 'err') sim.sensorOk = false;
-    else if (c === 'ok') sim.sensorOk = true;
+    if (c === 'w') { sim.weight = Number(v); sim.publishNow(); }
+    else if (c === 'err') { sim.sensorOk = false; sim.publishNow(); }
+    else if (c === 'ok') { sim.sensorOk = true; sim.publishNow(); }
     else if (c === 'failtare') sim.failNextTare = true;
     else if (c === 'crash') sim.crash();
     else if (c === 'q') sim.stop().then(() => process.exit(0));

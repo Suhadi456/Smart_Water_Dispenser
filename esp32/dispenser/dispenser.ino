@@ -55,7 +55,7 @@ const char* TOPIC_RAW    = "dispenser/001/raw";
 const char* TOPIC_STATUS = "dispenser/001/status";
 const char* TOPIC_AVAIL  = "dispenser/001/availability";
 
-const unsigned long READ_MS = 1000, PUBLISH_MS = 10000, SERVER_TIMEOUT_MS = 30000;
+const unsigned long READ_MS = 1000, PUBLISH_MS = 2000, SERVER_TIMEOUT_MS = 30000;
 const float STABLE_KG = 0.05f;  // selisih maks. pembacaan saat tare dianggap stabil
 // ===========================================================
 

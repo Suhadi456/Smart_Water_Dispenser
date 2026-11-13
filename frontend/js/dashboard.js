@@ -1,7 +1,7 @@
 'use strict';
 // Dashboard tunggal: polling REST API Express (~10 dtk). Tidak ada koneksi langsung ke broker MQTT.
 const $ = (s) => document.querySelector(s);
-const POLL_MS = 10000;
+const POLL_MS = 2000; // dipercepat ke 2 detik agar dashboard responsif saat demo/pengujian
 const CHART_REFRESH_MS = 60000;
 const GAP_MS = 2.5 * 3600e3; // lebih dari ini tanpa data -> garis diputus (tidak diinterpolasi)
 
