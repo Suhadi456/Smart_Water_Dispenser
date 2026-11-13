@@ -24,16 +24,16 @@
 
 #if WOKWI
   // Pin sesuai rangkaian Wokwi di Laporan Wokwi (Tabel 3.2).
-  const int HX_DT = 16, HX_SCK = 4, LED_PIN = 12, BUZZER_PIN = 14;
+  const int HX711_DT = 32, HX711_SCK = 33, LED_PIN = 18, BUZZER_PIN = 25;
   const float CAL_FACTOR = 420.0f;  // komponen wokwi-hx711 50kg: 420 unit/kg
   const char* WIFI_SSID = "Wokwi-GUEST";
   const char* WIFI_PASS = "";
 #else
   // Pin Laporan Arsitektur Bab 3.2 (hindari GPIO12 yang merupakan strapping pin).
-  const int HX_DT = 32, HX_SCK = 33, LED_PIN = 18, BUZZER_PIN = 25;
+  const int HX711_DT = 32, HX711_SCK = 33, LED_PIN = 18, BUZZER_PIN = 25;
   const float CAL_FACTOR = 1.0f;  // WAJIB dikalibrasi dengan massa referensi (Lampiran 1 laporan)
-  const char* WIFI_SSID = "GANTI_NAMA_WIFI";
-  const char* WIFI_PASS = "GANTI_PASSWORD_WIFI";
+  const char* WIFI_SSID = "Lab IoT";
+  const char* WIFI_PASS = "iflabiot";
 #endif
 const int LCD_SDA = 21, LCD_SCL = 22;
 
@@ -45,7 +45,7 @@ const int LCD_SDA = 21, LCD_SCL = 22;
 // Jika USE_TLS = 1 (EMQX Cloud):
 //  - MQTT_HOST = "xxxx.emqxsl.com", MQTT_PORT = 8883
 //  - MQTT_USER & MQTT_PASS diisi user yang dibuat di EMQX
-const char* MQTT_HOST = "192.168.1.15";  // GANTI dengan IP laptopmu (cek via ipconfig)
+const char* MQTT_HOST = "192.168.56.1";  // GANTI dengan IP laptopmu (cek via ipconfig)
 const int   MQTT_PORT = 1883;
 const char* MQTT_USER = "";
 const char* MQTT_PASS = "";
@@ -291,7 +291,7 @@ void setup() {
   lcd.init(); lcd.backlight();
   lcdShow("SMART DISPENSER", "Boot " + String(bootId));
 
-  scale.begin(HX_DT, HX_SCK);
+  scale.begin(HX711_DT, HX711_SCK);
   scale.set_scale(CAL_FACTOR);
 #ifndef WOKWI
   if (CAL_FACTOR == 1.0f) Serial.println("PERINGATAN: CAL_FACTOR=1.0, nilai belum dalam kg. Kalibrasi dulu.");
