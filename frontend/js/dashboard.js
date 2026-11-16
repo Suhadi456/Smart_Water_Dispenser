@@ -1,7 +1,5 @@
 'use strict';
 // Dashboard tunggal: polling REST API Express (1 dtk). Tidak ada koneksi langsung ke broker MQTT.
-// Desain visual mengadaptasi komponen FluidMeter, Mesh Gradient, Multi-Unit Converter, dan Grade Badge
-// dari referensi https://github.com/loty2019/water-dispenser-web (WaterHub).
 const $ = (s) => document.querySelector(s);
 const POLL_MS = 1000;
 const CHART_REFRESH_MS = 30000;
@@ -20,59 +18,7 @@ const STATE_VIEW = {
   SENSOR_ERROR:     { text: 'SENSOR ERROR', cls: 's-crit', icon: 'i-crit', act: 'LED: 3 Pulsa Cepat · Buzzer: Dihentikan' },
 };
 
-const ui = { range: '24h', unit: 'glasses', capDirty: false, thrDirty: false, last: null };
-
-// ---- Animated Mesh Gradient Canvas (inspirasi Gradient.js WaterHub) ----
-function initMeshCanvas() {
-  const cvs = $('#gradient-canvas');
-  if (!cvs || /jsdom/i.test(navigator.userAgent) || typeof cvs.getContext !== 'function') return () => {};
-  let ctx = null;
-  try { ctx = cvs.getContext('2d'); } catch { return () => {}; }
-  if (!ctx) return () => {};
-
-  let w = 0, h = 0, t = 0;
-  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const readColors = () => {
-    const cs = getComputedStyle(document.documentElement);
-    return [1, 2, 3, 4].map((i) => cs.getPropertyValue(`--gradient-color-${i}`).trim() || '#6ec3f4');
-  };
-  let colors = readColors();
-  const resize = () => {
-    w = cvs.width = Math.max(320, Math.floor((window.innerWidth || 640) * 0.5));
-    h = cvs.height = Math.max(240, Math.floor((window.innerHeight || 480) * 0.5));
-  };
-  resize();
-  window.addEventListener('resize', resize);
-
-  const drawFrame = () => {
-    ctx.fillStyle = colors[0];
-    ctx.fillRect(0, 0, w, h);
-    const orbs = [
-      { x: w * (0.25 + 0.15 * Math.cos(t * 0.7)), y: h * (0.28 + 0.14 * Math.sin(t * 0.5)), r: Math.max(w, h) * 0.65, c: colors[1] },
-      { x: w * (0.78 + 0.14 * Math.sin(t * 0.6)), y: h * (0.24 + 0.16 * Math.cos(t * 0.4)), r: Math.max(w, h) * 0.58, c: colors[2] },
-      { x: w * (0.52 + 0.18 * Math.cos(t * 0.5 + 1.4)), y: h * (0.76 + 0.12 * Math.sin(t * 0.8)), r: Math.max(w, h) * 0.68, c: colors[3] },
-    ];
-    ctx.globalAlpha = 0.55;
-    for (const o of orbs) {
-      const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
-      g.addColorStop(0, o.c);
-      g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-    }
-    ctx.globalAlpha = 1;
-  };
-  drawFrame();
-  if (!reduced) {
-    setInterval(() => {
-      if (document.hidden) return;
-      t += 0.035;
-      drawFrame();
-    }, 80);
-  }
-  return () => { colors = readColors(); drawFrame(); };
-}
-const refreshMeshColors = initMeshCanvas();
+const ui = { range: '24h', capDirty: false, thrDirty: false, last: null };
 
 // ---- Tema Terang / Gelap ----
 function applyTheme(t) {
@@ -81,7 +27,6 @@ function applyTheme(t) {
   else root.removeAttribute('data-theme');
   const isDark = t === 'dark' || (!t && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   $('#themeIcon')?.setAttribute('href', isDark ? '#i-sun' : '#i-moon');
-  refreshMeshColors();
 }
 try { applyTheme(localStorage.getItem('swd_theme')); } catch { applyTheme(null); }
 $('#themeBtn')?.addEventListener('click', () => {
@@ -90,31 +35,6 @@ $('#themeBtn')?.addEventListener('click', () => {
   const next = cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark');
   try { localStorage.setItem('swd_theme', next); } catch { /* abaikan bila storage diblokir */ }
   applyTheme(next);
-});
-
-// ---- Konverter Multi-Satuan (inspirasi WaterHub individual/page.js) ----
-function formatConvertedVolume(liters, unit) {
-  if (liters == null || !Number.isFinite(liters)) return '—';
-  switch (unit) {
-    case 'ml':      return `≈ ${Math.round(liters * 1000).toLocaleString('id-ID')} mL`;
-    case 'oz':      return `≈ ${(liters * 33.814).toFixed(1)} fl oz`;
-    case 'gallons': return `≈ ${(liters * 0.264172).toFixed(2)} gal`;
-    case 'glasses':
-    default:        return `≈ ${(liters / 0.25).toFixed(1)} gelas`;
-  }
-}
-try {
-  const savedUnit = localStorage.getItem('swd_unit');
-  if (savedUnit && ['glasses', 'ml', 'oz', 'gallons'].includes(savedUnit)) {
-    ui.unit = savedUnit;
-    if ($('#unitSelect')) $('#unitSelect').value = savedUnit;
-  }
-} catch { /* abaikan */ }
-$('#unitSelect')?.addEventListener('change', (e) => {
-  ui.unit = e.target.value;
-  try { localStorage.setItem('swd_unit', ui.unit); } catch { /* abaikan */ }
-  const hasValue = ui.last?.device_state === 'READY' && ui.last?.volume_liter != null;
-  if ($('#volConverted')) $('#volConverted').textContent = formatConvertedVolume(hasValue ? ui.last.volume_liter : null, ui.unit);
 });
 
 async function api(path, opts = {}) {
@@ -184,9 +104,12 @@ function updateZoneBars(h, k, r, cap) {
   if ($('#thKVol')) $('#thKVol').textContent = `> ${toL(h)} – ${toL(k)} L`;
   if ($('#thRVol')) $('#thRVol').textContent = `> ${toL(k)} – ${toL(r)} L`;
   if ($('#thNVol')) $('#thNVol').textContent = `NORMAL > ${toL(r)} L`;
-  if ($('#markH')) { $('#markH').style.bottom = `${h}%`; $('#markH span').textContent = `H ${h}%`; }
-  if ($('#markK')) { $('#markK').style.bottom = `${k}%`; $('#markK span').textContent = `K ${k}%`; }
-  if ($('#markR')) { $('#markR').style.bottom = `${r}%`; $('#markR span').textContent = `R ${r}%`; }
+  if ($('#markH')) $('#markH').style.bottom = `${h}%`;
+  if ($('#markK')) $('#markK').style.bottom = `${k}%`;
+  if ($('#markR')) $('#markR').style.bottom = `${r}%`;
+  if ($('#legH')) $('#legH').textContent = `${h}%`;
+  if ($('#legK')) $('#legK').textContent = `${k}%`;
+  if ($('#legR')) $('#legR').textContent = `${r}%`;
 }
 
 function render(m) {
@@ -207,14 +130,13 @@ function render(m) {
   document.querySelectorAll('.card').forEach((c) => c.classList.toggle('stale', stale));
   $('#staleVol').hidden = !stale;
   $('#vol').textContent = hasValue ? m.volume_liter.toFixed(2) : '--';
-  if ($('#volConverted')) $('#volConverted').textContent = formatConvertedVolume(hasValue ? m.volume_liter : null, ui.unit);
   if ($('#volRangeHint')) $('#volRangeHint').textContent = `Kapasitas penuh ${m.capacity_liter.toFixed(2)} L`;
   $('#pct').textContent = hasValue ? String(Math.round(m.percentage)) : '--';
   $('#pctBar').style.width = hasValue ? `${m.percentage}%` : '0%';
   $('#cap').textContent = m.capacity_liter;
   $('#updated').textContent = m.latest_at ? new Date(m.latest_at).toLocaleString('id-ID') : '—';
 
-  // FluidMeter botol berlekuk
+  // Visualisasi Galon Dispenser
   if ($('#tankCapTag')) $('#tankCapTag').textContent = `${m.capacity_liter} L`;
   if ($('#tankFill')) $('#tankFill').style.height = hasValue ? `${Math.max(0, Math.min(100, m.percentage))}%` : '0%';
   if ($('#tankVessel')) $('#tankVessel').setAttribute('data-status', hasValue && m.water_status ? m.water_status : 'NONE');
@@ -302,20 +224,6 @@ const el = (name, attrs = {}, text) => {
   return n;
 };
 
-function updateGradeBadge(rows) {
-  const gEl = $('#avgGrade');
-  if (!gEl) return;
-  const pcts = rows.map((r) => r.percentage).filter((p) => Number.isFinite(p));
-  if (!pcts.length) {
-    gEl.textContent = '—';
-    gEl.className = 'grade-val';
-    return;
-  }
-  const avg = Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
-  gEl.textContent = `${avg}%`;
-  gEl.className = `grade-val ${avg >= 60 ? 'g-good' : avg >= 40 ? 'g-mid' : 'g-low'}`;
-}
-
 async function drawChart() {
   const svg = $('#chart');
   const tip = $('#chartTip');
@@ -330,7 +238,6 @@ async function drawChart() {
   svg.replaceChildren();
   $('#chartEmpty').hidden = rows.length > 0;
   if ($('#stCount')) $('#stCount').textContent = String(rows.length);
-  updateGradeBadge(rows);
   if (!rows.length) {
     if ($('#stMin')) $('#stMin').textContent = '—';
     if ($('#stMax')) $('#stMax').textContent = '—';
@@ -349,12 +256,11 @@ async function drawChart() {
   const y = (v) => T + (1 - v / maxCap) * (H - T - B);
   const baseY = y(0);
 
-  // Gradien area di bawah kurva (#55C0F3 dengan opasitas bertingkat seperti WaterHub)
   const defs = el('defs');
   const grad = el('linearGradient', { id: 'chartAreaGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
   grad.append(
-    el('stop', { offset: '0%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.35' }),
-    el('stop', { offset: '100%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.02' }),
+    el('stop', { offset: '0%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.26' }),
+    el('stop', { offset: '100%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.01' }),
   );
   defs.append(grad);
   svg.append(defs);
@@ -372,11 +278,11 @@ async function drawChart() {
     svg.append(el('text', { x: x(t), y: H - 8, 'text-anchor': i === 0 ? 'start' : i === ticks ? 'end' : 'middle' }, label));
   }
 
-  // kapasitas (garis tangga merah/aksen putus-putus seperti Ideal Consumption di WaterHub)
+  // kapasitas (garis tangga, putus-putus)
   let cap = `M${x(Math.max(rows[0].t, t0))},${y(rows[0].capacity_liter)}`;
   rows.forEach((r, i) => { if (i) cap += `H${x(r.t)}V${y(r.capacity_liter)}`; });
   cap += `H${x(t1)}`;
-  svg.append(el('path', { d: cap, fill: 'none', stroke: 'var(--chart-cap)', 'stroke-width': 2.2, 'stroke-dasharray': '8 5' }));
+  svg.append(el('path', { d: cap, fill: 'none', stroke: 'var(--chart-cap)', 'stroke-width': 1.8, 'stroke-dasharray': '6 4' }));
 
   // volume: segmen dipisah bila ada celah besar (tanpa interpolasi)
   let path = '', area = '', segStart = null;
@@ -400,12 +306,12 @@ async function drawChart() {
     svg.append(el('path', { d: area, fill: 'url(#chartAreaGrad)' }));
   }
 
-  svg.append(el('path', { d: path, fill: 'none', stroke: 'var(--chart-line)', 'stroke-width': 2.8, 'stroke-linejoin': 'round' }));
+  svg.append(el('path', { d: path, fill: 'none', stroke: 'var(--chart-line)', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
   for (const r of rows) {
     const cx = x(r.t), cy = y(r.volume_liter);
     const dotColor = STATUS[r.water_status]?.dot || 'var(--chart-line)';
     const label = `${new Date(r.t).toLocaleString('id-ID')}\n${r.volume_liter.toFixed(2)} L (${r.percentage}%) dari kapasitas ${r.capacity_liter} L\n${r.water_status || ''} · ${r.record_reason}`;
-    const c = el('circle', { cx, cy, r: 4.5, fill: dotColor, stroke: 'var(--card-solid)', 'stroke-width': 2 });
+    const c = el('circle', { cx, cy, r: 4.2, fill: dotColor, stroke: 'var(--surface)', 'stroke-width': 1.8 });
     c.append(el('title', {}, label));
     if (tip) {
       c.addEventListener('mouseenter', () => {

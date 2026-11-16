@@ -4,32 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <title>Smart Water Dispenser — WaterHub IoT Dashboard</title>
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <title>Smart Water Dispenser — Monitoring Level Air</title>
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
-  <!-- Animated Mesh Gradient Canvas (inspirasi WaterHub Gradient.js) -->
-  <canvas id="gradient-canvas" aria-hidden="true"></canvas>
-
-  <!-- Sprite ikon vektor + clipPath botol berlekuk FluidMeter (WaterHub) -->
+  <!-- Sprite ikon vektor & clipPath siluet galon dispenser -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
     <defs>
-      <clipPath id="bottle-clip" clipPathUnits="userSpaceOnUse">
-        <path d="M51.64 190.92H13.66C6.67 190.92 1 185.25 1 178.26V93.57c0-2.52 1-4.93 2.78-6.71 3.71-3.71 3.71-9.72 0-13.43C2 71.64 1 69.23 1 66.71v-4.89C1 47.56 8.13 34.24 19.99 26.33V20h25.32v6.33C57.18 34.24 64.3 47.55 64.3 61.81v4.9c0 2.52-1 4.93-2.78 6.71-3.71 3.71-3.71 9.72 0 13.43 1.78 1.78 2.78 4.2 2.78 6.71v84.69c0 6.99-5.67 12.66-12.66 12.66Z"/>
+      <!-- Bentuk galon dispenser lebar dengan leher dan lekukan badan -->
+      <clipPath id="gallon-clip" clipPathUnits="userSpaceOnUse">
+        <path d="M40 20H80V29C80 34 86 38 96 44C106 50 112 60 112 72V82C112 85 110 87 109 89C107 92 107 96 109 99C110 101 112 103 112 106V116C112 119 110 121 109 123C107 126 107 130 109 133C110 135 112 137 112 140V162C112 172 104 180 94 180H26C16 180 8 172 8 162V140C8 137 10 135 11 133C13 130 13 126 11 123C10 121 8 119 8 116V106C8 103 10 101 11 99C13 96 13 92 11 89C10 87 8 85 8 82V72C8 60 14 50 24 44C34 38 40 34 40 29V20Z"/>
       </clipPath>
     </defs>
-    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8s6.5 6.6 6.5 11.2a6.5 6.5 0 0 1-13 0C5.5 9.4 12 2.8 12 2.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 14.5a2.8 2.8 0 0 0 2.5 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8 12.5 2.8 2.8 5.2-5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5v4.5M12 17v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-crit" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 7.5v6M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+
+    <!-- Logo galon untuk header -->
+    <symbol id="i-gallon" viewBox="0 0 24 24">
+      <path d="M9 3h6v2.5c0 1 .7 1.8 2 2.6 1.8 1.1 3 2.7 3 4.7V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6.2c0-2 1.2-3.6 3-4.7 1.3-.8 2-1.6 2-2.6V3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M8 3h8M5 13h14M5 16.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.2 6 10.6a6 6 0 0 1-12 0C6 9.2 12 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8.5 12.5 2.5 2.5 4.8-5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19L12 3.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 9.5v4.5M12 17v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-crit" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 7.5v6M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-empty" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-tare" viewBox="0 0 24 24"><path d="M12 3v4M5 20h14M6.5 20 8 10h8l1.5 10M9 10a3 3 0 1 1 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-tare" viewBox="0 0 24 24"><path d="M12 3v4M5 20h14M6.5 20 8 10h8l1.5 10M9 10a3 3 0 1 1 6 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6 12.5a9.5 9.5 0 0 1 12 0M9 16a5 5 0 0 1 6 0M12 19.5v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 4-2.4M21 9a14 14 0 0 0-8-3M6 12.5a9.5 9.5 0 0 1 3-1.8M18 12.5a9.5 9.5 0 0 0-2.5-1.6M9 16a5 5 0 0 1 6 0M12 19.5v.01M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14 16 10M4.9 19a9 9 0 1 1 14.2 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></symbol>
-    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.2L5.2 17A2.5 2.5 0 0 0 7.4 21h9.2a2.5 2.5 0 0 0 2.2-4L14 8.2V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 15h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="6" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="12" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/><circle cx="11" cy="18" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19h16M4 15l4-4 4 2 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -43,14 +46,14 @@
     <header class="top">
       <div class="brand">
         <div class="brand-logo" aria-hidden="true">
-          <svg class="ic ic-lg"><use href="#i-drop"/></svg>
+          <svg class="ic ic-lg"><use href="#i-gallon"/></svg>
         </div>
         <div>
           <div class="brand-row">
             <h1>Smart Water Dispenser</h1>
             <span class="chip-meta" id="cfgMeta">Konfigurasi v1</span>
           </div>
-          <p class="sub"><span id="devCode">dispenser-001</span> · WaterHub Level &amp; Refill Alert</p>
+          <p class="sub"><span id="devCode">dispenser-001</span> · Monitoring Level &amp; Refill Alert</p>
         </div>
       </div>
 
@@ -76,60 +79,47 @@
   <main id="main">
     <div id="notice" class="notice" role="status" hidden></div>
 
-    <!-- Bento Hero: FluidMeter Contoured Bottle (WaterHub) + 4 Kartu Metrik Glassmorphism -->
+    <!-- Baris Utama: Visualisasi Galon Dispenser + 4 Kartu Metrik -->
     <section class="hero-grid" aria-label="Monitoring air real-time">
-      <article class="panel tank-card" aria-label="Visualisasi botol galon FluidMeter">
-        <div class="tank-head">
+      <article class="panel gallon-card" aria-label="Visualisasi level air galon">
+        <div class="gallon-head">
           <div>
-            <span class="card-kicker">FluidMeter</span>
-            <p class="tank-title">Ketersediaan Air</p>
+            <span class="card-kicker">Visualisasi Galon</span>
+            <p class="gallon-title">Level Air Aktif</p>
           </div>
           <span id="tankCapTag" class="chip-meta">5 L</span>
         </div>
 
-        <div class="fluid-meter-stage">
-          <!-- Komponen FluidMeter berlekuk dengan garis takar & clipPath #bottle-clip -->
-          <div class="bottle-wrap" id="tankVessel" data-status="NONE">
-            <div class="bottle-container">
-              <div class="bottle-mask">
-                <div class="bottle-fill" id="tankFill" style="height:0%">
-                  <div class="bottle-wave" aria-hidden="true"></div>
+        <div class="gallon-stage">
+          <div class="gallon-wrap" id="tankVessel" data-status="NONE">
+            <div class="gallon-box">
+              <div class="gallon-mask">
+                <div class="gallon-fill" id="tankFill" style="height:0%">
+                  <div class="gallon-surface" aria-hidden="true"></div>
                 </div>
+                <!-- Garis batas RENDAH, KRITIS, HABIS di dalam badan galon agar rapi tanpa bertumpuk -->
+                <div class="gallon-mark m-r" id="markR" style="bottom:20%"></div>
+                <div class="gallon-mark m-k" id="markK" style="bottom:10%"></div>
+                <div class="gallon-mark m-h" id="markH" style="bottom:4%"></div>
               </div>
-              <svg width="66" height="192" class="bottle-svg" viewBox="0 0 66 192" fill="none" aria-hidden="true">
-                <!-- Garis takaran bertingkat (seperti FluidMeter.jsx WaterHub) -->
-                <g class="bottle-ticks" stroke="currentColor" stroke-width="1.6" stroke-opacity="0.35">
-                  <line x1="10" y1="42" x2="55" y2="42"/>
-                  <line x1="6"  y1="63" x2="59" y2="63"/>
-                  <line x1="8"  y1="84" x2="57" y2="84"/>
-                  <line x1="6"  y1="105" x2="59" y2="105"/>
-                  <line x1="6"  y1="127" x2="59" y2="127"/>
-                  <line x1="6"  y1="148" x2="59" y2="148"/>
-                  <line x1="8"  y1="169" x2="57" y2="169"/>
-                </g>
-                <!-- Garis siluet galon berlekuk -->
-                <path
-                  d="M51.64 190.92H13.66C6.67 190.92 1 185.25 1 178.26V93.57c0-2.52 1-4.93 2.78-6.71 3.71-3.71 3.71-9.72 0-13.43C2 71.64 1 69.23 1 66.71v-4.89C1 47.56 8.13 34.24 19.99 26.33V20h25.32v6.33C57.18 34.24 64.3 47.55 64.3 61.81v4.9c0 2.52-1 4.93-2.78 6.71-3.71 3.71-3.71 9.72 0 13.43 1.78 1.78 2.78 4.2 2.78 6.71v84.69c0 6.99-5.67 12.66-12.66 12.66Z"
-                  stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg class="gallon-svg" width="120" height="186" viewBox="0 0 120 186" fill="none" aria-hidden="true">
                 <!-- Tutup galon -->
-                <path
-                  d="M43.38 1H22.28C19.36 1 17 3.36 17 6.28V19.99h31.66V6.28C48.66 3.36 46.29 1 43.38 1Z"
-                  fill="var(--card)" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <rect x="37" y="4" width="46" height="16" rx="4" fill="var(--surface-sub)" stroke="currentColor" stroke-width="2.2"/>
+                <line x1="44" y1="9" x2="76" y2="9" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.35" stroke-linecap="round"/>
+                <!-- Kontur badan galon 5L/10L -->
+                <path d="M40 20H80V29C80 34 86 38 96 44C106 50 112 60 112 72V82C112 85 110 87 109 89C107 92 107 96 109 99C110 101 112 103 112 106V116C112 119 110 121 109 123C107 126 107 130 109 133C110 135 112 137 112 140V162C112 172 104 180 94 180H26C16 180 8 172 8 162V140C8 137 10 135 11 133C13 130 13 126 11 123C10 121 8 119 8 116V106C8 103 10 101 11 99C13 96 13 92 11 89C10 87 8 85 8 82V72C8 60 14 50 24 44C34 38 40 34 40 29V20Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <!-- Garis lekukan rusuk galon -->
+                <path d="M16 94H104M16 128H104" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.22" stroke-linecap="round"/>
               </svg>
-              <!-- Penanda ambang dinamis H, K, R di samping botol -->
-              <div class="bottle-marks" aria-hidden="true">
-                <div class="tank-mark m-r" id="markR" style="bottom:20%"><span>R 20%</span></div>
-                <div class="tank-mark m-k" id="markK" style="bottom:10%"><span>K 10%</span></div>
-                <div class="tank-mark m-h" id="markH" style="bottom:4%"><span>H 4%</span></div>
-              </div>
             </div>
 
-            <div class="fluid-readout">
-              <span class="tank-pct" id="tankPctText">--%</span>
-              <span class="tank-sub" id="tankVolText">Menunggu data</span>
-              <div class="grade-badge" title="Rata-rata persentase ketersediaan air pada riwayat aktif">
-                <span>Skor Riwayat</span>
-                <strong id="avgGrade" class="grade-val">—</strong>
+            <div class="gallon-readout">
+              <span class="gallon-pct" id="tankPctText">--%</span>
+              <span class="gallon-vol" id="tankVolText">Menunggu data</span>
+              <div class="gallon-legend" aria-label="Ringkasan batas status">
+                <span><i class="s-dot d-warn"></i>R <b id="legR">20%</b></span>
+                <span><i class="s-dot d-crit"></i>K <b id="legK">10%</b></span>
+                <span><i class="s-dot d-empty"></i>H <b id="legH">4%</b></span>
               </div>
             </div>
           </div>
@@ -143,17 +133,6 @@
             <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-drop"/></svg></span>
           </div>
           <p class="val"><span id="vol">--</span><span class="unit">L</span></p>
-          <!-- Konverter Multi-Satuan (inspirasi WaterHub individual/page.js) -->
-          <div class="unit-converter">
-            <span id="volConverted" class="conv-val">—</span>
-            <label for="unitSelect" class="sr-only">Satuan konversi</label>
-            <select id="unitSelect" class="unit-select" aria-label="Pilih satuan konversi">
-              <option value="glasses">Gelas (250 mL)</option>
-              <option value="ml">Mililiter (mL)</option>
-              <option value="oz">Ounces (fl oz)</option>
-              <option value="gallons">US Gallons</option>
-            </select>
-          </div>
           <div class="card-foot">
             <p class="hint" id="volRangeHint">Kapasitas penuh 5.00 L</p>
             <p class="hint stale-tag" id="staleVol" hidden>DATA LAMA</p>
@@ -166,12 +145,14 @@
             <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-gauge"/></svg></span>
           </div>
           <p class="val"><span id="pct">--</span><span class="unit">%</span></p>
-          <div class="bar" aria-hidden="true"><div id="pctBar"></div></div>
-          <div class="zone-bar" aria-hidden="true">
-            <span id="zHabis" class="z-seg z-h" style="width:4%"></span>
-            <span id="zKritis" class="z-seg z-k" style="width:6%"></span>
-            <span id="zRendah" class="z-seg z-r" style="width:10%"></span>
-            <span id="zNormal" class="z-seg z-n" style="width:80%"></span>
+          <div>
+            <div class="bar" aria-hidden="true"><div id="pctBar"></div></div>
+            <div class="zone-bar" aria-hidden="true">
+              <span id="zHabis" class="z-seg z-h" style="width:4%"></span>
+              <span id="zKritis" class="z-seg z-k" style="width:6%"></span>
+              <span id="zRendah" class="z-seg z-r" style="width:10%"></span>
+              <span id="zNormal" class="z-seg z-n" style="width:80%"></span>
+            </div>
           </div>
         </article>
 
@@ -187,7 +168,7 @@
         <article class="card">
           <div class="card-top">
             <h2>Kapasitas Galon</h2>
-            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-flask"/></svg></span>
+            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-gallon"/></svg></span>
           </div>
           <p class="val"><span id="cap">--</span><span class="unit">L</span></p>
           <p class="hint">Diperbarui: <time id="updated">—</time></p>
@@ -203,7 +184,7 @@
             <svg class="ic panel-ic" aria-hidden="true"><use href="#i-chart"/></svg>
             <h2 id="hChart">Grafik Historis Volume Air</h2>
           </div>
-          <p class="panel-sub">Kurva volume air (#55C0F3) terhadap garis kapasitas aktif saat dicatat (tanpa interpolasi)</p>
+          <p class="panel-sub">Pencatatan otomatis tiap pergantian jam, perubahan status, dan event perangkat</p>
         </div>
         <div class="chart-controls">
           <div class="chart-stats" id="chartStats" aria-live="polite">
@@ -224,7 +205,7 @@
         <div id="chartEmpty" class="empty" hidden>
           <svg class="ic ic-lg" aria-hidden="true"><use href="#i-chart"/></svg>
           <p>Belum ada data historis pada rentang ini.</p>
-          <span>Data akan tercatat otomatis saat pergantian jam atau perubahan status air.</span>
+          <span>Data tercatat saat pergantian jam atau perubahan status air.</span>
         </div>
       </div>
 
@@ -249,7 +230,7 @@
           <svg class="ic panel-ic" aria-hidden="true"><use href="#i-tare"/></svg>
           <h2 id="hGal">Pengaturan Galon &amp; Kalibrasi Tare</h2>
         </div>
-        <p class="panel-sub">Pilih ukuran wadah aktif lalu lakukan tare saat galon kosong berada di atas platform</p>
+        <p class="panel-sub">Pilih kapasitas galon aktif lalu lakukan tare saat galon kosong di atas timbangan</p>
 
         <form id="capForm" novalidate>
           <fieldset>
@@ -258,18 +239,18 @@
               <input type="radio" name="cap" value="5">
               <div class="opt-body">
                 <span class="opt-title">5 L</span>
-                <span class="opt-desc">Galon sedang (≈ 20 gelas)</span>
+                <span class="opt-desc">Galon sedang (5 kg air)</span>
               </div>
             </label>
             <label class="opt">
               <input type="radio" name="cap" value="10">
               <div class="opt-body">
                 <span class="opt-title">10 L</span>
-                <span class="opt-desc">Galon besar (≈ 40 gelas)</span>
+                <span class="opt-desc">Galon besar (10 kg air)</span>
               </div>
             </label>
           </fieldset>
-          <p class="note">Mengganti kapasitas otomatis menaikkan versi konfigurasi dan mewajibkan tare ulang.</p>
+          <p class="note">Mengganti kapasitas menaikkan versi konfigurasi dan mewajibkan tare ulang.</p>
           <button type="submit" id="capBtn" class="btn">Terapkan Kapasitas</button>
         </form>
 
@@ -357,7 +338,7 @@
 
         <p class="note warn-note">
           <svg class="ic" aria-hidden="true"><use href="#i-low"/></svg>
-          <span>Mode demo publik tanpa login: siapa pun yang memegang URL dapat mengubah kapasitas, ambang, dan tare. Matikan tunnel setelah pengujian.</span>
+          <span>Akses publik tanpa login: siapa pun yang memegang URL dapat mengubah kapasitas, ambang, dan tare. Matikan tunnel setelah pengujian.</span>
         </p>
       </section>
     </div>
@@ -372,10 +353,10 @@
         <span class="dlg-ic s-crit" aria-hidden="true"><svg class="ic"><use href="#i-tare"/></svg></span>
         <h2 id="tareTitle">Tare Galon Kosong?</h2>
       </div>
-      <p class="dlg-body">Prosedur tare menjadikan beban saat ini di atas timbangan sebagai <strong>titik nol (0.00 kg)</strong> dan menyimpannya ke memori NVS ESP32. Bila galon masih berisi air, sisa air tersebut akan dianggap 0 L.</p>
+      <p class="dlg-body">Prosedur tare menjadikan beban saat ini di timbangan sebagai <strong>titik nol (0.00 kg)</strong> dan menyimpannya ke memori NVS ESP32. Bila galon masih berisi air, sisa air tersebut akan dianggap 0 L.</p>
       <label class="chk">
         <input type="checkbox" id="tareChk">
-        <span>Saya memastikan galon di atas platform <strong>benar-benar kosong</strong> dan posisi dudukannya stabil.</span>
+        <span>Saya memastikan galon di atas platform <strong>benar-benar kosong</strong> dan posisinya stabil.</span>
       </label>
       <div class="actions">
         <button type="button" id="tareCancel" class="btn">Batal</button>
@@ -384,6 +365,6 @@
     </form>
   </dialog>
 
-  <script src="js/dashboard.js?v=4"></script>
+  <script src="js/dashboard.js?v=5"></script>
 </body>
 </html>
