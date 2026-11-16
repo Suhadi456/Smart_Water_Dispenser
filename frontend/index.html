@@ -2,14 +2,22 @@
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
-  <title>Smart Water Dispenser — Dashboard Monitoring IoT</title>
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <title>Smart Water Dispenser — WaterHub IoT Dashboard</title>
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
-  <!-- Sprite ikon vektor (stroke konsisten 2px, tanpa emoji) -->
+  <!-- Animated Mesh Gradient Canvas (inspirasi WaterHub Gradient.js) -->
+  <canvas id="gradient-canvas" aria-hidden="true"></canvas>
+
+  <!-- Sprite ikon vektor + clipPath botol berlekuk FluidMeter (WaterHub) -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <clipPath id="bottle-clip" clipPathUnits="userSpaceOnUse">
+        <path d="M51.64 190.92H13.66C6.67 190.92 1 185.25 1 178.26V93.57c0-2.52 1-4.93 2.78-6.71 3.71-3.71 3.71-9.72 0-13.43C2 71.64 1 69.23 1 66.71v-4.89C1 47.56 8.13 34.24 19.99 26.33V20h25.32v6.33C57.18 34.24 64.3 47.55 64.3 61.81v4.9c0 2.52-1 4.93-2.78 6.71-3.71 3.71-3.71 9.72 0 13.43 1.78 1.78 2.78 4.2 2.78 6.71v84.69c0 6.99-5.67 12.66-12.66 12.66Z"/>
+      </clipPath>
+    </defs>
     <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8s6.5 6.6 6.5 11.2a6.5 6.5 0 0 1-13 0C5.5 9.4 12 2.8 12 2.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 14.5a2.8 2.8 0 0 0 2.5 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8 12.5 2.8 2.8 5.2-5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5v4.5M12 17v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
@@ -42,7 +50,7 @@
             <h1>Smart Water Dispenser</h1>
             <span class="chip-meta" id="cfgMeta">Konfigurasi v1</span>
           </div>
-          <p class="sub"><span id="devCode">dispenser-001</span> · Level &amp; Refill Alert System</p>
+          <p class="sub"><span id="devCode">dispenser-001</span> · WaterHub Level &amp; Refill Alert</p>
         </div>
       </div>
 
@@ -68,27 +76,60 @@
   <main id="main">
     <div id="notice" class="notice" role="status" hidden></div>
 
-    <!-- Bento Hero: Visualisasi Galon + 4 Kartu Metrik -->
+    <!-- Bento Hero: FluidMeter Contoured Bottle (WaterHub) + 4 Kartu Metrik Glassmorphism -->
     <section class="hero-grid" aria-label="Monitoring air real-time">
-      <article class="panel tank-card" aria-label="Visualisasi tangki galon">
+      <article class="panel tank-card" aria-label="Visualisasi botol galon FluidMeter">
         <div class="tank-head">
-          <span class="card-kicker">Visualisasi Galon</span>
+          <div>
+            <span class="card-kicker">FluidMeter</span>
+            <p class="tank-title">Ketersediaan Air</p>
+          </div>
           <span id="tankCapTag" class="chip-meta">5 L</span>
         </div>
-        <div class="tank-stage">
-          <div class="tank-vessel" id="tankVessel" data-status="NONE">
-            <div class="tank-neck" aria-hidden="true"></div>
-            <div class="tank-body">
-              <div class="tank-liquid" id="tankFill" style="height:0%">
-                <div class="tank-surface" aria-hidden="true"></div>
+
+        <div class="fluid-meter-stage">
+          <!-- Komponen FluidMeter berlekuk dengan garis takar & clipPath #bottle-clip -->
+          <div class="bottle-wrap" id="tankVessel" data-status="NONE">
+            <div class="bottle-container">
+              <div class="bottle-mask">
+                <div class="bottle-fill" id="tankFill" style="height:0%">
+                  <div class="bottle-wave" aria-hidden="true"></div>
+                </div>
               </div>
-              <!-- Garis penanda batas RENDAH, KRITIS, HABIS -->
-              <div class="tank-mark m-r" id="markR" style="bottom:20%"><span>R 20%</span></div>
-              <div class="tank-mark m-k" id="markK" style="bottom:10%"><span>K 10%</span></div>
-              <div class="tank-mark m-h" id="markH" style="bottom:4%"><span>H 4%</span></div>
-              <div class="tank-overlay">
-                <span class="tank-pct" id="tankPctText">--%</span>
-                <span class="tank-sub" id="tankVolText">Menunggu data</span>
+              <svg width="66" height="192" class="bottle-svg" viewBox="0 0 66 192" fill="none" aria-hidden="true">
+                <!-- Garis takaran bertingkat (seperti FluidMeter.jsx WaterHub) -->
+                <g class="bottle-ticks" stroke="currentColor" stroke-width="1.6" stroke-opacity="0.35">
+                  <line x1="10" y1="42" x2="55" y2="42"/>
+                  <line x1="6"  y1="63" x2="59" y2="63"/>
+                  <line x1="8"  y1="84" x2="57" y2="84"/>
+                  <line x1="6"  y1="105" x2="59" y2="105"/>
+                  <line x1="6"  y1="127" x2="59" y2="127"/>
+                  <line x1="6"  y1="148" x2="59" y2="148"/>
+                  <line x1="8"  y1="169" x2="57" y2="169"/>
+                </g>
+                <!-- Garis siluet galon berlekuk -->
+                <path
+                  d="M51.64 190.92H13.66C6.67 190.92 1 185.25 1 178.26V93.57c0-2.52 1-4.93 2.78-6.71 3.71-3.71 3.71-9.72 0-13.43C2 71.64 1 69.23 1 66.71v-4.89C1 47.56 8.13 34.24 19.99 26.33V20h25.32v6.33C57.18 34.24 64.3 47.55 64.3 61.81v4.9c0 2.52-1 4.93-2.78 6.71-3.71 3.71-3.71 9.72 0 13.43 1.78 1.78 2.78 4.2 2.78 6.71v84.69c0 6.99-5.67 12.66-12.66 12.66Z"
+                  stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Tutup galon -->
+                <path
+                  d="M43.38 1H22.28C19.36 1 17 3.36 17 6.28V19.99h31.66V6.28C48.66 3.36 46.29 1 43.38 1Z"
+                  fill="var(--card)" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <!-- Penanda ambang dinamis H, K, R di samping botol -->
+              <div class="bottle-marks" aria-hidden="true">
+                <div class="tank-mark m-r" id="markR" style="bottom:20%"><span>R 20%</span></div>
+                <div class="tank-mark m-k" id="markK" style="bottom:10%"><span>K 10%</span></div>
+                <div class="tank-mark m-h" id="markH" style="bottom:4%"><span>H 4%</span></div>
+              </div>
+            </div>
+
+            <div class="fluid-readout">
+              <span class="tank-pct" id="tankPctText">--%</span>
+              <span class="tank-sub" id="tankVolText">Menunggu data</span>
+              <div class="grade-badge" title="Rata-rata persentase ketersediaan air pada riwayat aktif">
+                <span>Skor Riwayat</span>
+                <strong id="avgGrade" class="grade-val">—</strong>
               </div>
             </div>
           </div>
@@ -102,8 +143,19 @@
             <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-drop"/></svg></span>
           </div>
           <p class="val"><span id="vol">--</span><span class="unit">L</span></p>
+          <!-- Konverter Multi-Satuan (inspirasi WaterHub individual/page.js) -->
+          <div class="unit-converter">
+            <span id="volConverted" class="conv-val">—</span>
+            <label for="unitSelect" class="sr-only">Satuan konversi</label>
+            <select id="unitSelect" class="unit-select" aria-label="Pilih satuan konversi">
+              <option value="glasses">Gelas (250 mL)</option>
+              <option value="ml">Mililiter (mL)</option>
+              <option value="oz">Ounces (fl oz)</option>
+              <option value="gallons">US Gallons</option>
+            </select>
+          </div>
           <div class="card-foot">
-            <p class="hint" id="volRangeHint">Rentang 0.00 – 5.00 L</p>
+            <p class="hint" id="volRangeHint">Kapasitas penuh 5.00 L</p>
             <p class="hint stale-tag" id="staleVol" hidden>DATA LAMA</p>
           </div>
         </article>
@@ -151,7 +203,7 @@
             <svg class="ic panel-ic" aria-hidden="true"><use href="#i-chart"/></svg>
             <h2 id="hChart">Grafik Historis Volume Air</h2>
           </div>
-          <p class="panel-sub">Pencatatan tiap pergantian jam, perubahan status, dan event perangkat (tanpa interpolasi)</p>
+          <p class="panel-sub">Kurva volume air (#55C0F3) terhadap garis kapasitas aktif saat dicatat (tanpa interpolasi)</p>
         </div>
         <div class="chart-controls">
           <div class="chart-stats" id="chartStats" aria-live="polite">
@@ -206,14 +258,14 @@
               <input type="radio" name="cap" value="5">
               <div class="opt-body">
                 <span class="opt-title">5 L</span>
-                <span class="opt-desc">Galon sedang (5 kg air)</span>
+                <span class="opt-desc">Galon sedang (≈ 20 gelas)</span>
               </div>
             </label>
             <label class="opt">
               <input type="radio" name="cap" value="10">
               <div class="opt-body">
                 <span class="opt-title">10 L</span>
-                <span class="opt-desc">Galon besar (10 kg air)</span>
+                <span class="opt-desc">Galon besar (≈ 40 gelas)</span>
               </div>
             </label>
           </fieldset>
@@ -332,6 +384,6 @@
     </form>
   </dialog>
 
-  <script src="js/dashboard.js?v=3"></script>
+  <script src="js/dashboard.js?v=4"></script>
 </body>
 </html>
