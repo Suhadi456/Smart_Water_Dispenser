@@ -1,398 +1,876 @@
-'use strict';
-// Dashboard tunggal: polling REST API Express (1 dtk). Tidak ada koneksi langsung ke broker MQTT.
-const $ = (s) => document.querySelector(s);
-const POLL_MS = 1000;
-const CHART_REFRESH_MS = 30000;
-const GAP_MS = 2.5 * 3600e3; // lebih dari ini tanpa data -> garis diputus (tidak diinterpolasi)
+(function () {
+  'use strict';
 
-const STATUS = {
-  NORMAL: { cls: 's-ok', icon: 'i-check', dot: 'var(--ok-dot)', act: 'LED: OFF · Buzzer: Mati' },
-  RENDAH: { cls: 's-warn', icon: 'i-low', dot: 'var(--warn-dot)', act: 'LED: Kedip 1 dtk · Buzzer: 1x / 10 mnt' },
-  KRITIS: { cls: 's-crit', icon: 'i-crit', dot: 'var(--crit-dot)', act: 'LED: Kedip 200 ms · Buzzer: 2x / 5 mnt' },
-  HABIS:  { cls: 's-empty', icon: 'i-empty', dot: 'var(--empty-dot)', act: 'LED: ON Konstan · Buzzer: 3x / 2 mnt' },
-};
-const STATE_VIEW = {
-  TARE_REQUIRED:    { text: 'BUTUH TARE', cls: 's-warn', icon: 'i-tare', act: 'LED: Standby · Buzzer: Dihentikan' },
-  TARE_IN_PROGRESS: { text: 'MEMPROSES TARE', cls: 's-none', icon: 'i-tare', act: 'LED: Standby · Buzzer: Dihentikan' },
-  TARE_FAILED:      { text: 'TARE GAGAL', cls: 's-crit', icon: 'i-crit', act: 'LED: Standby · Buzzer: Dihentikan' },
-  SENSOR_ERROR:     { text: 'SENSOR ERROR', cls: 's-crit', icon: 'i-crit', act: 'LED: 3 Pulsa Cepat · Buzzer: Dihentikan' },
-};
+  const POLL_INTERVAL_MS = 1000;
+  const CHART_REFRESH_INTERVAL_MS = 15000;
+  const TARE_TIMEOUT_SEC = 60;
+  const DEFAULT_THRESHOLDS = { habis: 4, kritis: 10, rendah: 20 };
 
-const ui = { range: '24h', capDirty: false, thrDirty: false, last: null };
+  const STATUS_COLORS = {
+    NORMAL: '#4edea3',
+    RENDAH: '#f59e0b',
+    KRITIS: '#f97316',
+    HABIS: '#ef4444',
+  };
 
-// ---- Tema Terang / Gelap ----
-function applyTheme(t) {
-  const root = document.documentElement;
-  if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t);
-  else root.removeAttribute('data-theme');
-  const isDark = t === 'dark' || (!t && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-  $('#themeIcon')?.setAttribute('href', isDark ? '#i-sun' : '#i-moon');
-}
-try { applyTheme(localStorage.getItem('swd_theme')); } catch { applyTheme(null); }
-$('#themeBtn')?.addEventListener('click', () => {
-  const cur = document.documentElement.getAttribute('data-theme');
-  const sysDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  const next = cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark');
-  try { localStorage.setItem('swd_theme', next); } catch { /* abaikan bila storage diblokir */ }
-  applyTheme(next);
-});
+  const state = {
+    activeTab: 'telemetry',
+    chartRange: '24h',
+    monitoring: null,
+    readings: [],
+    selectedCapacity: 5,
+    capacityDirty: false,
+    thresholdsDirty: false,
+    lastConfigVersion: null,
+    tareCountdownTimer: null,
+    tareDeadlineMs: null,
+    lastTareRequestedAt: null,
+    toastTimer: null,
+  };
 
-async function api(path, opts = {}) {
-  const res = await fetch('/api' + path, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json' },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
-}
+  const $ = (id) => document.getElementById(id);
 
-function setPill(el, cls, icon, text) {
-  el.className = `pill ${cls}`;
-  el.querySelector('use').setAttribute('href', '#' + icon);
-  el.querySelector('span').textContent = text;
-}
-function setBadge(el, cls, icon, text) {
-  el.className = `badge ${cls}`;
-  el.querySelector('use').setAttribute('href', '#' + icon);
-  el.querySelector('span:last-child').textContent = text;
-}
-const ageText = (iso, now) => {
-  if (!iso) return 'belum ada data';
-  const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
-  return s < 60 ? `${s} dtk lalu` : s < 3600 ? `${Math.floor(s / 60)} mnt lalu` : `${Math.floor(s / 3600)} jam lalu`;
-};
-let toastTimer;
-function toast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 5000);
-}
-
-function notice(kind, text, busy = false) {
-  const n = $('#notice');
-  n.hidden = !text;
-  if (!text) return;
-  n.className = `notice ${kind}`;
-  n.replaceChildren();
-  if (busy) {
-    const sp = document.createElement('span');
-    sp.className = 'spinner';
-    sp.setAttribute('aria-hidden', 'true');
-    n.append(sp);
-  }
-  const p = document.createElement('span');
-  p.textContent = text;
-  n.append(p);
-}
-
-function updateZoneBars(h, k, r, cap) {
-  const ok = [h, k, r].every(Number.isInteger) && h >= 0 && h < k && k < r && r < 100;
-  if (!ok) return;
-  const wH = h, wK = k - h, wR = r - k, wN = 100 - r;
-  for (const [id, w] of [['#zHabis', wH], ['#zKritis', wK], ['#zRendah', wR], ['#zNormal', wN],
-                         ['#pHabis', wH], ['#pKritis', wK], ['#pRendah', wR], ['#pNormal', wN]]) {
-    const el = $(id);
-    if (el) el.style.width = `${w}%`;
-  }
-  const c = cap || ui.last?.capacity_liter || 5;
-  const toL = (p) => ((p / 100) * c).toFixed(2);
-  if ($('#thHVol')) $('#thHVol').textContent = `≤ ${toL(h)} L`;
-  if ($('#thKVol')) $('#thKVol').textContent = `> ${toL(h)} – ${toL(k)} L`;
-  if ($('#thRVol')) $('#thRVol').textContent = `> ${toL(k)} – ${toL(r)} L`;
-  if ($('#thNVol')) $('#thNVol').textContent = `NORMAL > ${toL(r)} L`;
-  if ($('#markH')) $('#markH').style.bottom = `${h}%`;
-  if ($('#markK')) $('#markK').style.bottom = `${k}%`;
-  if ($('#markR')) $('#markR').style.bottom = `${r}%`;
-  if ($('#legH')) $('#legH').textContent = `${h}%`;
-  if ($('#legK')) $('#legK').textContent = `${k}%`;
-  if ($('#legR')) $('#legR').textContent = `${r}%`;
-}
-
-function render(m) {
-  ui.last = m;
-  const now = new Date(m.server_time).getTime();
-  $('#devCode').textContent = m.device_code;
-  if ($('#cfgMeta')) $('#cfgMeta').textContent = `Konfigurasi v${m.config_version}`;
-  $('#banner').hidden = true;
-
-  const online = m.connection === 'ONLINE';
-  setBadge($('#conn'), online ? 'b-on' : 'b-crit', online ? 'i-wifi' : 'i-wifi-off', online ? 'ONLINE' : 'OFFLINE');
-  setBadge($('#fresh'), m.data_fresh ? 'b-on' : 'b-warn', 'i-clock',
-    m.data_fresh ? `Data segar · ${ageText(m.last_raw_at, now)}` : `Data lama · ${ageText(m.last_raw_at, now)}`);
-
-  const ds = m.device_state;
-  const hasValue = ds === 'READY' && m.volume_liter != null;
-  const stale = hasValue && (!m.data_fresh || !online);
-  document.querySelectorAll('.card').forEach((c) => c.classList.toggle('stale', stale));
-  $('#staleVol').hidden = !stale;
-  $('#vol').textContent = hasValue ? m.volume_liter.toFixed(2) : '--';
-  if ($('#volRangeHint')) $('#volRangeHint').textContent = `Kapasitas penuh ${m.capacity_liter.toFixed(2)} L`;
-  $('#pct').textContent = hasValue ? String(Math.round(m.percentage)) : '--';
-  $('#pctBar').style.width = hasValue ? `${m.percentage}%` : '0%';
-  $('#cap').textContent = m.capacity_liter;
-  $('#updated').textContent = m.latest_at ? new Date(m.latest_at).toLocaleString('id-ID') : '—';
-
-  // Visualisasi Galon Dispenser
-  if ($('#tankCapTag')) $('#tankCapTag').textContent = `${m.capacity_liter} L`;
-  if ($('#tankFill')) $('#tankFill').style.height = hasValue ? `${Math.max(0, Math.min(100, m.percentage))}%` : '0%';
-  if ($('#tankVessel')) $('#tankVessel').setAttribute('data-status', hasValue && m.water_status ? m.water_status : 'NONE');
-  if ($('#tankPctText')) $('#tankPctText').textContent = hasValue ? `${Math.round(m.percentage)}%` : '--%';
-  if ($('#tankVolText')) {
-    $('#tankVolText').textContent = hasValue
-      ? `${m.volume_liter.toFixed(2)} / ${m.capacity_liter} L`
-      : (STATE_VIEW[ds]?.text || 'Menunggu data');
+  function fmtNum(val, decimals) {
+    if (val === null || val === undefined || Number.isNaN(Number(val))) return '--';
+    return Number(val).toFixed(decimals);
   }
 
-  if (hasValue && STATUS[m.water_status]) {
-    setPill($('#status'), STATUS[m.water_status].cls, STATUS[m.water_status].icon, m.water_status + (stale ? ' (data lama)' : ''));
-    if ($('#actuatorHint')) $('#actuatorHint').textContent = online ? STATUS[m.water_status].act : 'LED: 3 Pulsa · Buzzer: Dihentikan (Offline)';
-  } else if (STATE_VIEW[ds]) {
-    setPill($('#status'), STATE_VIEW[ds].cls, STATE_VIEW[ds].icon, STATE_VIEW[ds].text);
-    if ($('#actuatorHint')) $('#actuatorHint').textContent = STATE_VIEW[ds].act;
-  } else {
-    setPill($('#status'), 's-none', 'i-info', '--');
+  function fmtDateTime(isoStr) {
+    if (!isoStr) return '--';
+    const d = new Date(isoStr);
+    if (Number.isNaN(d.getTime())) return '--';
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   }
 
-  // Aturan UX Bab 6.6
-  if (ds === 'TARE_REQUIRED') {
-    notice('', 'Butuh tare. Letakkan galon baru yang benar-benar kosong di timbangan, lalu tekan TARE GALON KOSONG. Status air belum ditampilkan.');
-  } else if (ds === 'TARE_IN_PROGRESS') {
-    notice('n-info', 'Tare sedang diproses perangkat. Menunggu konfirmasi (ACK) dari ESP32…', true);
-  } else if (ds === 'TARE_FAILED') {
-    notice('n-crit', `Tare gagal: ${m.tare_message || 'penyebab tidak diketahui'}. Volume sementara tidak valid; tekan TARE GALON KOSONG untuk mencoba lagi.`);
-  } else if (ds === 'SENSOR_ERROR') {
-    notice('n-crit', 'Sensor berat bermasalah atau pembacaan di luar batas wajar. Ini BUKAN berarti air habis.');
-  } else if (!online) {
-    notice('', 'Perangkat OFFLINE. Nilai yang tampil adalah data terakhir, bukan kondisi saat ini.');
-  } else if (!m.data_fresh) {
-    notice('', 'Data tidak terkini. Nilai yang tampil adalah pembacaan lama.');
-  } else {
-    notice('', '');
+  function fmtShortTime(isoStr, range) {
+    const d = new Date(isoStr);
+    if (Number.isNaN(d.getTime())) return '';
+    if (range === '7d') {
+      return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' +
+        d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    }
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   }
 
-  setPill($('#tareBadge'), ...(m.tare_state === 'READY' ? ['s-ok', 'i-check', 'READY']
-    : [STATE_VIEW[m.tare_state].cls, STATE_VIEW[m.tare_state].icon, STATE_VIEW[m.tare_state].text]));
-  if ($('#tareIdText')) $('#tareIdText').textContent = `ID Tare: ${m.tare_id || '—'}`;
-  const msg = $('#tareMsg');
-  msg.hidden = !(m.tare_state === 'TARE_FAILED' && m.tare_message);
-  msg.textContent = m.tare_message || '';
-  $('#tareBtn').disabled = m.tare_state === 'TARE_IN_PROGRESS';
-
-  // Jangan menimpa isian yang sedang diedit pengguna.
-  if (!ui.capDirty) document.querySelectorAll('input[name=cap]').forEach((r) => (r.checked = Number(r.value) === m.capacity_liter));
-  if (!ui.thrDirty) {
-    $('#thH').value = m.threshold_habis_pct;
-    $('#thK').value = m.threshold_kritis_pct;
-    $('#thR').value = m.threshold_rendah_pct;
-    updateZoneBars(m.threshold_habis_pct, m.threshold_kritis_pct, m.threshold_rendah_pct, m.capacity_liter);
-  }
-}
-
-function showOffline(err) {
-  const b = $('#banner');
-  b.textContent = `Tidak dapat menghubungi server/database: ${err.message}. Menampilkan data terakhir yang diterima.`;
-  b.hidden = false;
-  setBadge($('#conn'), 'b-crit', 'i-wifi-off', 'SERVER TIDAK TERJANGKAU');
-  document.querySelectorAll('.card').forEach((c) => c.classList.add('stale'));
-}
-
-async function refresh() {
-  try {
-    render(await api('/monitoring'));
-  } catch (e) {
-    showOffline(e);
-  }
-}
-
-$('#refreshBtn')?.addEventListener('click', async () => {
-  const btn = $('#refreshBtn');
-  btn.classList.add('spinning');
-  await Promise.all([refresh(), drawChart()]);
-  setTimeout(() => btn.classList.remove('spinning'), 450);
-});
-
-// ---- Grafik (SVG): titik pada timestamp asli, garis putus pada celah, kapasitas sebagai garis tangga ----
-const NS = 'http://www.w3.org/2000/svg';
-const el = (name, attrs = {}, text) => {
-  const n = document.createElementNS(NS, name);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-  if (text != null) n.textContent = text;
-  return n;
-};
-
-async function drawChart() {
-  const svg = $('#chart');
-  const tip = $('#chartTip');
-  if (tip) tip.hidden = true;
-  let data;
-  try {
-    data = await api('/readings?range=' + ui.range);
-  } catch {
-    return;
-  }
-  const rows = data.readings.map((r) => ({ ...r, t: new Date(r.recorded_at).getTime() }));
-  svg.replaceChildren();
-  $('#chartEmpty').hidden = rows.length > 0;
-  if ($('#stCount')) $('#stCount').textContent = String(rows.length);
-  if (!rows.length) {
-    if ($('#stMin')) $('#stMin').textContent = '—';
-    if ($('#stMax')) $('#stMax').textContent = '—';
-    return;
+  function showToast(msg, isError) {
+    const el = $('toastMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('is-error', Boolean(isError));
+    el.hidden = false;
+    if (state.toastTimer) clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => {
+      el.hidden = true;
+    }, 4200);
   }
 
-  const vols = rows.map((r) => r.volume_liter);
-  if ($('#stMin')) $('#stMin').textContent = `${Math.min(...vols).toFixed(2)} L`;
-  if ($('#stMax')) $('#stMax').textContent = `${Math.max(...vols).toFixed(2)} L`;
-
-  const W = 640, H = 260, L = 44, R = 14, T = 14, B = 30;
-  const span = ui.range === '7d' ? 7 * 24 * 3600e3 : 24 * 3600e3;
-  const t1 = Date.now(), t0 = t1 - span;
-  const maxCap = Math.max(5, ...rows.map((r) => r.capacity_liter));
-  const x = (t) => L + ((t - t0) / span) * (W - L - R);
-  const y = (v) => T + (1 - v / maxCap) * (H - T - B);
-  const baseY = y(0);
-
-  const defs = el('defs');
-  const grad = el('linearGradient', { id: 'chartAreaGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
-  grad.append(
-    el('stop', { offset: '0%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.26' }),
-    el('stop', { offset: '100%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.01' }),
-  );
-  defs.append(grad);
-  svg.append(defs);
-
-  for (let v = 0; v <= maxCap; v += maxCap / 5) {
-    svg.append(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--chart-grid)' }));
-    svg.append(el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end' }, v.toFixed(v % 1 ? 1 : 0)));
-  }
-  const ticks = ui.range === '7d' ? 7 : 6;
-  for (let i = 0; i <= ticks; i++) {
-    const t = t0 + (span * i) / ticks;
-    const d = new Date(t);
-    const label = ui.range === '7d' ? d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric' })
-      : d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    svg.append(el('text', { x: x(t), y: H - 8, 'text-anchor': i === 0 ? 'start' : i === ticks ? 'end' : 'middle' }, label));
+  async function apiJson(url, options) {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+    const text = typeof res.text === 'function' ? await res.text() : JSON.stringify(await res.json());
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { message: text };
+    }
+    if (!res.ok) {
+      const msg = data.error || data.message || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
   }
 
-  // kapasitas (garis tangga, putus-putus)
-  let cap = `M${x(Math.max(rows[0].t, t0))},${y(rows[0].capacity_liter)}`;
-  rows.forEach((r, i) => { if (i) cap += `H${x(r.t)}V${y(r.capacity_liter)}`; });
-  cap += `H${x(t1)}`;
-  svg.append(el('path', { d: cap, fill: 'none', stroke: 'var(--chart-cap)', 'stroke-width': 1.8, 'stroke-dasharray': '6 4' }));
+  // Tab Navigation
+  function switchTab(tabName) {
+    state.activeTab = tabName;
+    document.querySelectorAll('.nav-tab').forEach((btn) => {
+      const match = btn.dataset.tab === tabName;
+      btn.classList.toggle('is-active', match);
+      if (match) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
 
-  // volume: segmen dipisah bila ada celah besar (tanpa interpolasi)
-  let path = '', area = '', segStart = null;
-  rows.forEach((r, i) => {
-    const px = x(r.t).toFixed(1), py = y(r.volume_liter).toFixed(1);
-    const gap = i === 0 || r.t - rows[i - 1].t > GAP_MS;
-    if (gap) {
-      if (segStart !== null && i > segStart + 1) {
-        area += `L${x(rows[i - 1].t).toFixed(1)},${baseY.toFixed(1)}L${x(rows[segStart].t).toFixed(1)},${baseY.toFixed(1)}Z`;
-      }
-      segStart = i;
-      path += `M${px},${py}`;
-      area += `M${px},${py}`;
+    document.querySelectorAll('.tab-panel').forEach((panel) => {
+      const match = panel.dataset.tabPanel === tabName;
+      panel.classList.toggle('is-active', match);
+      panel.hidden = !match;
+    });
+
+    if (tabName === 'chart') {
+      loadReadings();
+    }
+  }
+
+  // Banner & Topbar Status
+  function renderTopbarAndBanner(m) {
+    const devId = m.device_code || m.device_id || 'dispenser-001';
+    $('deviceIdPill').textContent = devId;
+    $('bannerDeviceId').textContent = devId;
+    $('lastUpdateText').textContent = fmtDateTime(m.last_raw_at || m.latest_at || m.server_time);
+
+    const online = m.connection === 'ONLINE';
+    const fresh = Boolean(m.data_fresh);
+
+    const connBadge = $('connBadge');
+    connBadge.classList.toggle('is-online', online);
+    connBadge.classList.toggle('is-offline', !online);
+    $('connBadgeText').textContent = online ? 'MQTT ONLINE' : 'OFFLINE';
+
+    const freshBadge = $('freshBadge');
+    freshBadge.textContent = fresh ? 'Fresh' : 'Data Lama';
+    freshBadge.classList.toggle('is-stale', !fresh);
+
+    // Health strip
+    const healthChip = $('healthFreshChip');
+    healthChip.className = 'chip mono ' + (online && fresh ? 'is-ok' : 'is-warn');
+    healthChip.textContent = online && fresh ? 'DATA FRESH (<= 30s)' : (online ? 'STALE > 30s' : 'OFFLINE');
+
+    $('watchdogText').textContent = m.device_state === 'SENSOR_ERROR' ? 'ALERT' : (online ? 'NORMAL' : 'TIMEOUT');
+    $('falseEmptyLockText').textContent = m.device_state === 'SENSOR_ERROR' ? 'TRIGGERED' : 'ARMED';
+
+    // Banner state hierarchy
+    const banner = $('systemBanner');
+    const titleEl = $('bannerStateTitle');
+    const msgEl = $('bannerMessage');
+    const actionBtn = $('bannerActionBtn');
+    banner.className = 'banner';
+    actionBtn.classList.add('is-hidden');
+
+    if (m.device_state === 'TARE_IN_PROGRESS') {
+      banner.classList.add('is-info');
+      titleEl.textContent = 'Kalibrasi Tare Berjalan';
+      msgEl.textContent = m.tare_message || 'Menunggu konfirmasi zero offset dari ESP32...';
+    } else if (m.device_state === 'TARE_REQUIRED') {
+      banner.classList.add('is-warn');
+      titleEl.textContent = 'Tare Diperlukan';
+      msgEl.textContent = m.tare_message || 'Kapasitas berubah atau belum dikalibrasi. Lakukan Tare saat galon kosong.';
+      actionBtn.textContent = 'Buka Tare & Kalibrasi';
+      actionBtn.dataset.goto = 'tare';
+      actionBtn.classList.remove('is-hidden');
+    } else if (m.device_state === 'TARE_FAILED') {
+      banner.classList.add('is-danger');
+      titleEl.textContent = 'Kalibrasi Tare Gagal';
+      msgEl.textContent = m.tare_message || 'Perangkat gagal melakukan Tare. Periksa galon lalu ulangi.';
+      actionBtn.textContent = 'Ulangi Tare';
+      actionBtn.dataset.goto = 'tare';
+      actionBtn.classList.remove('is-hidden');
+    } else if (m.device_state === 'SENSOR_ERROR') {
+      banner.classList.add('is-danger');
+      titleEl.textContent = 'Gangguan Sensor Load Cell';
+      msgEl.textContent = 'Pembacaan dihentikan sementara agar gangguan sensor tidak terbaca sebagai galon habis.';
+    } else if (!online || !fresh) {
+      banner.classList.add('is-warn');
+      titleEl.textContent = 'Perangkat Offline / Data Lama';
+      msgEl.textContent = 'Nilai yang ditampilkan adalah data valid terakhir, bukan kondisi real-time saat ini.';
     } else {
-      path += `L${px},${py}`;
-      area += `L${px},${py}`;
+      banner.classList.add('is-ok');
+      titleEl.textContent = 'Sistem Normal & Terhubung';
+      msgEl.textContent = 'Pembaruan otomatis telemetri Load Cell aktif.';
     }
-  });
-  if (segStart !== null && rows.length > segStart + 1) {
-    area += `L${x(rows[rows.length - 1].t).toFixed(1)},${baseY.toFixed(1)}L${x(rows[segStart].t).toFixed(1)},${baseY.toFixed(1)}Z`;
-    svg.append(el('path', { d: area, fill: 'url(#chartAreaGrad)' }));
   }
 
-  svg.append(el('path', { d: path, fill: 'none', stroke: 'var(--chart-line)', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
-  for (const r of rows) {
-    const cx = x(r.t), cy = y(r.volume_liter);
-    const dotColor = STATUS[r.water_status]?.dot || 'var(--chart-line)';
-    const label = `${new Date(r.t).toLocaleString('id-ID')}\n${r.volume_liter.toFixed(2)} L (${r.percentage}%) dari kapasitas ${r.capacity_liter} L\n${r.water_status || ''} · ${r.record_reason}`;
-    const c = el('circle', { cx, cy, r: 4.2, fill: dotColor, stroke: 'var(--surface)', 'stroke-width': 1.8 });
-    c.append(el('title', {}, label));
-    if (tip) {
-      c.addEventListener('mouseenter', () => {
-        tip.textContent = label;
-        tip.style.left = `${(cx / W) * 100}%`;
-        tip.style.top = `${(cy / H) * 100}%`;
+  // Gallon SVG & Water Fill
+  function setWaterGradientColors(top, mid, bot) {
+    $('waterStopTop').setAttribute('stop-color', top);
+    $('waterStopMid').setAttribute('stop-color', mid);
+    $('waterStopBot').setAttribute('stop-color', bot);
+  }
+
+  function renderGallonAndReadout(m) {
+    const cap = Number(m.capacity_liter) || 5;
+    const hPct = Number(m.threshold_habis_pct ?? 4);
+    const kPct = Number(m.threshold_kritis_pct ?? 10);
+    const rPct = Number(m.threshold_rendah_pct ?? 20);
+    const ready = m.device_state === 'READY';
+    const hasReading = m.volume_liter !== null && m.volume_liter !== undefined && m.percentage !== null && m.percentage !== undefined;
+    const online = m.connection === 'ONLINE';
+    const valid = ready && hasReading;
+
+    $('gallonCapBadge').textContent = `${cap.toFixed(1)} LITER`;
+    $('gallonFooterCap').textContent = `${cap.toFixed(1)} Liter`;
+    $('volumeCapLabel').textContent = `${cap.toFixed(1)} L`;
+    $('barMaxLabel').textContent = `100% (${cap.toFixed(1)} L)`;
+    $('scaleMaxLabel').textContent = `${cap.toFixed(1)} L`;
+    $('scaleMidLabel').textContent = `${(cap / 2).toFixed(1)} L`;
+    $('scaleKritisLabel').textContent = `${((cap * kPct) / 100).toFixed(1)} L`;
+    $('barThresholdKritis').textContent = `${kPct}% (${((cap * kPct) / 100).toFixed(2)} L) Ambang Kritis`;
+
+    // Position kritis tripwire line inside tank (y: 82 at 100% .. 322 at 0%)
+    const kritisY = 322 - (Math.max(0, Math.min(100, kPct)) / 100) * 240;
+    const thrLine = $('gallonThresholdLine');
+    thrLine.setAttribute('y1', kritisY.toFixed(1));
+    thrLine.setAttribute('y2', kritisY.toFixed(1));
+
+    const badge = $('waterStatusBadge');
+    const fillRect = $('gallonFillRect');
+    const waveGroup = $('gallonWaveGroup');
+    const barFill = $('levelBarFill');
+    const progressEl = $('levelProgressBar');
+
+    if (!valid) {
+      $('volumeValue').textContent = '--';
+      $('pctValue').textContent = 'Sisa: --%';
+      $('massValue').textContent = '-- kg (-- g)';
+      $('scaleLiveVol').textContent = '-- L';
+      $('scaleLivePct').textContent = '(--%)';
+      $('barCurrentPct').textContent = '--%';
+      barFill.style.width = '0%';
+      progressEl.setAttribute('aria-valuenow', '0');
+
+      fillRect.setAttribute('y', '322');
+      fillRect.setAttribute('height', '0');
+      waveGroup.setAttribute('transform', 'translate(0, 322)');
+      waveGroup.setAttribute('opacity', '0');
+
+      badge.className = 'status-badge ' + (m.device_state === 'SENSOR_ERROR' || m.device_state === 'TARE_FAILED' ? 'is-error' : 'is-muted');
+      badge.textContent = m.device_state === 'TARE_REQUIRED' ? 'PERLU TARE' :
+        m.device_state === 'TARE_IN_PROGRESS' ? 'SEDANG TARE' :
+          m.device_state === 'SENSOR_ERROR' ? 'SENSOR ERROR' : 'TIDAK TERSEDIA';
+
+      $('sensorActiveChip').className = 'chip mono is-warn';
+      $('sensorActiveChip').textContent = m.device_state;
+      $('sensorNote').textContent = m.tare_message || 'Menunggu sensor & kalibrasi siap';
+      $('gallonFooterStatus').textContent = badge.textContent;
+      renderHardwareIndicators(m, null);
+      return;
+    }
+
+    const vol = Number(m.volume_liter);
+    const pct = Math.max(0, Math.min(100, Number(m.percentage)));
+    const grams = Math.round(vol * 1000);
+    const status = (m.water_status || 'NORMAL').toUpperCase();
+
+    $('volumeValue').textContent = vol.toFixed(2);
+    $('pctValue').textContent = `Sisa: ${pct}%`;
+    $('massValue').textContent = `${vol.toFixed(2)} kg (${grams.toLocaleString('id-ID')} g)`;
+    $('scaleLiveVol').textContent = `${vol.toFixed(1)} L`;
+    $('scaleLivePct').textContent = `(${pct}%)`;
+    $('barCurrentPct').textContent = `${pct}% (${online ? 'Live' : 'Data Lama'})`;
+
+    barFill.style.width = `${pct}%`;
+    progressEl.setAttribute('aria-valuenow', String(pct));
+
+    const fillHeight = (pct / 100) * 240;
+    const fillY = 322 - fillHeight;
+    fillRect.setAttribute('y', fillY.toFixed(1));
+    fillRect.setAttribute('height', fillHeight.toFixed(1));
+    waveGroup.setAttribute('transform', `translate(0, ${fillY.toFixed(1)})`);
+    waveGroup.setAttribute('opacity', pct > 1 ? '1' : '0');
+
+    // Gradient & status badges
+    let badgeClass = 'is-normal';
+    let footerLabel = 'Level Air Optimal';
+    let barColor = 'linear-gradient(90deg, #8ed5ff, #38bdf8, #4edea3)';
+    setWaterGradientColors('#38bdf8', '#0ea5e9', '#006080');
+
+    if (status === 'RENDAH') {
+      badgeClass = 'is-rendah';
+      footerLabel = `Perlu Isi Ulang (<= ${rPct}%)`;
+      barColor = 'linear-gradient(90deg, #fbbf24, #f59e0b)';
+      setWaterGradientColors('#fbbf24', '#f59e0b', '#92400e');
+    } else if (status === 'KRITIS') {
+      badgeClass = 'is-kritis';
+      footerLabel = `Level Kritis (<= ${kPct}%)`;
+      barColor = 'linear-gradient(90deg, #fb923c, #f97316)';
+      setWaterGradientColors('#fb923c', '#f97316', '#9a3412');
+    } else if (status === 'HABIS') {
+      badgeClass = 'is-habis';
+      footerLabel = `Galon Habis (<= ${hPct}%)`;
+      barColor = 'linear-gradient(90deg, #f87171, #ef4444)';
+      setWaterGradientColors('#f87171', '#ef4444', '#7f1d1d');
+    }
+
+    barFill.style.background = barColor;
+    badge.className = `status-badge ${badgeClass}`;
+    badge.textContent = online ? status : `${status} (DATA LAMA)`;
+    $('gallonFooterStatus').textContent = footerLabel;
+
+    $('sensorActiveChip').className = 'chip mono ' + (online ? 'is-ok' : 'is-warn');
+    $('sensorActiveChip').textContent = online ? 'AKTIF' : 'DATA LAMA';
+    $('sensorNote').textContent = online ? 'Pembacaan HX711 terverifikasi' : 'Menunggu perangkat kembali online';
+
+    renderHardwareIndicators(m, status);
+  }
+
+  function pad16(str) {
+    return (str + '                ').slice(0, 16);
+  }
+
+  function renderHardwareIndicators(m, status) {
+    const kPct = Number(m.threshold_kritis_pct ?? 10);
+    const online = m.connection === 'ONLINE';
+    const devState = m.device_state;
+
+    $('ledRuleDesc').textContent = `Menyala merah saat level <= ${kPct}% (Kritis/Habis)`;
+
+    const ledDot = $('ledDotIndicator');
+    const ledBadge = $('ledStateBadge');
+    const buzzIcon = document.querySelector('.buzzer-icon');
+    const buzzBadge = $('buzzerStateBadge');
+
+    ledDot.className = 'led-indicator';
+    ledBadge.className = 'state-badge mono';
+    buzzIcon.className = 'buzzer-icon';
+    buzzBadge.className = 'state-badge mono';
+
+    if (devState !== 'READY') {
+      ledDot.classList.add('is-on-amber');
+      ledBadge.classList.add('is-warn');
+      ledBadge.textContent = devState === 'SENSOR_ERROR' ? 'BLINK ERR' : 'STANDBY';
+      buzzBadge.textContent = 'DIAM';
+    } else if (!online) {
+      ledBadge.textContent = 'TERPUTUS';
+      buzzBadge.textContent = 'DIHENTIKAN';
+    } else if (status === 'HABIS' || status === 'KRITIS') {
+      ledDot.classList.add('is-on-red');
+      ledBadge.classList.add('is-alert');
+      ledBadge.textContent = 'MERAH AKTIF';
+      buzzIcon.classList.add('is-active');
+      buzzBadge.classList.add('is-alert');
+      buzzBadge.textContent = status === 'HABIS' ? 'ALARM KONTINU' : 'BEEP BERKALA';
+    } else if (status === 'RENDAH') {
+      ledDot.classList.add('is-on-amber');
+      ledBadge.classList.add('is-warn');
+      ledBadge.textContent = 'PERINGATAN';
+      buzzBadge.textContent = 'STANDBY';
+    } else {
+      ledBadge.textContent = 'OFF (AMAN)';
+      buzzBadge.textContent = 'DIAM';
+    }
+
+    // Simulated 16x2 LCD
+    $('lcdStatusPill').textContent = online ? 'ONLINE' : 'OFFLINE';
+    if (devState === 'TARE_REQUIRED') {
+      $('lcdLine1').textContent = pad16('PERLU KALIBRASI');
+      $('lcdLine2').textContent = pad16('TARE GALON KOSNG');
+    } else if (devState === 'TARE_IN_PROGRESS') {
+      $('lcdLine1').textContent = pad16('TARE DIPROSES..');
+      $('lcdLine2').textContent = pad16('JANGAN SENTUH');
+    } else if (devState === 'TARE_FAILED') {
+      $('lcdLine1').textContent = pad16('TARE GAGAL!');
+      $('lcdLine2').textContent = pad16('ULANGI KALIBRASI');
+    } else if (devState === 'SENSOR_ERROR') {
+      $('lcdLine1').textContent = pad16('SENSOR ERROR!');
+      $('lcdLine2').textContent = pad16('CEK LOAD CELL');
+    } else if (m.volume_liter !== null && m.percentage !== null) {
+      const volText = `VOL:${Number(m.volume_liter).toFixed(2)}L`;
+      const pctText = `[${Math.round(Number(m.percentage))}%]`;
+      const space = Math.max(1, 16 - volText.length - pctText.length);
+      $('lcdLine1').textContent = pad16(volText + ' '.repeat(space) + pctText);
+      $('lcdLine2').textContent = pad16(`STATUS: ${online ? status : 'OFFLINE'}`);
+    } else {
+      $('lcdLine1').textContent = pad16('VOL: --.-L [--%]');
+      $('lcdLine2').textContent = pad16('STATUS: WAIT');
+    }
+
+    // Quick calib badge
+    const calibChip = $('calibStatusBadge');
+    calibChip.className = 'chip mono ' + (devState === 'READY' ? 'is-ok' : 'is-warn');
+    calibChip.textContent = devState === 'READY' ? 'TERKALIBRASI' : devState;
+  }
+
+  // Tab 2: Tare & Kapasitas
+  function renderTareTab(m) {
+    const cap = Number(m.capacity_liter) || 5;
+    if (!state.capacityDirty) {
+      state.selectedCapacity = cap;
+    }
+
+    const activeCap5 = state.selectedCapacity === 5;
+    $('capCard5').classList.toggle('is-selected', activeCap5);
+    $('capCard5').setAttribute('aria-checked', String(activeCap5));
+    $('capCard10').classList.toggle('is-selected', !activeCap5);
+    $('capCard10').setAttribute('aria-checked', String(!activeCap5));
+
+    const capChanged = state.selectedCapacity !== cap;
+    $('applyCapacityBtn').disabled = !capChanged || m.device_state === 'TARE_IN_PROGRESS';
+    $('capacityActionHint').textContent = capChanged
+      ? `Mengubah kapasitas ${cap}L -> ${state.selectedCapacity}L akan mewajibkan Tare ulang.`
+      : `Kapasitas aktif saat ini: ${cap} Liter.`;
+
+    $('tarePageStatusBadge').textContent = m.tare_state || '--';
+    $('configVersionText').textContent = `v${m.config_version ?? '--'}`;
+    $('tareStateText').textContent = m.tare_state || '--';
+    $('tareIdText').textContent = m.tare_id || '--';
+    $('tareRequestedAtText').textContent = fmtDateTime(m.tare_requested_at || state.lastTareRequestedAt);
+    $('tareMessageText').textContent = m.tare_message || 'Siap menerima perintah kalibrasi.';
+    $('modalCapText').textContent = `${cap} Liter`;
+
+    const checked = $('confirmEmptyCheck').checked;
+    const offline = m.connection !== 'ONLINE';
+    const busy = m.tare_state === 'TARE_IN_PROGRESS';
+    $('openTareModalBtn').disabled = !checked || busy || offline;
+
+    // Update modal progress view if currently open
+    const modal = $('tareModal');
+    const progressView = $('tareModalProgressView');
+    if (!modal.hidden && !progressView.hidden) {
+      if (m.tare_state === 'READY') {
+        stopTareCountdown();
+        modal.hidden = true;
+        showToast('Kalibrasi Tare selesai dan galon siap digunakan.');
+      } else if (m.tare_state === 'TARE_FAILED') {
+        stopTareCountdown();
+        $('tareProgressMsg').textContent = m.tare_message || 'Tare gagal di perangkat.';
+      } else if (m.tare_message) {
+        $('tareProgressMsg').textContent = m.tare_message;
+      }
+    }
+  }
+
+  function startTareCountdown() {
+    stopTareCountdown();
+    state.tareDeadlineMs = Date.now() + TARE_TIMEOUT_SEC * 1000;
+    const tick = () => {
+      const remSec = Math.max(0, Math.ceil((state.tareDeadlineMs - Date.now()) / 1000));
+      $('tareCountdownText').textContent = `${remSec} detik`;
+      $('tareProgressBar').style.width = `${(remSec / TARE_TIMEOUT_SEC) * 100}%`;
+      if (remSec <= 0) {
+        stopTareCountdown();
+        $('tareProgressMsg').textContent = 'Waktu tunggu habis. Periksa koneksi perangkat.';
+      }
+    };
+    tick();
+    state.tareCountdownTimer = setInterval(tick, 500);
+  }
+
+  function stopTareCountdown() {
+    if (state.tareCountdownTimer) {
+      clearInterval(state.tareCountdownTimer);
+      state.tareCountdownTimer = null;
+    }
+  }
+
+  // Tab 3: Grafik Analitik & CSV
+  async function loadReadings() {
+    try {
+      const data = await apiJson(`/api/readings?range=${encodeURIComponent(state.chartRange)}`);
+      state.readings = Array.isArray(data.readings) ? data.readings : [];
+      renderChart();
+    } catch (err) {
+      showToast(`Gagal memuat grafik: ${err.message}`, true);
+    }
+  }
+
+  function renderChart() {
+    const readings = state.readings;
+    const m = state.monitoring || {};
+    const cap = Number(m.capacity_liter) || 5;
+    $('chartCapBadge').textContent = `Kapasitas: ${cap.toFixed(1)} L`;
+
+    $('kpiPointCount').textContent = String(readings.length);
+    if (readings.length === 0) {
+      $('kpiMinVol').textContent = '-- L';
+      $('kpiMaxVol').textContent = '-- L';
+      $('kpiLastPoint').textContent = 'Belum ada pencatatan';
+      $('chartEmptyState').hidden = false;
+      ['chartGrid', 'chartGaps', 'chartThresholds', 'chartArea', 'chartLine', 'chartPoints', 'chartAxes']
+        .forEach((id) => { $(id).innerHTML = ''; });
+      return;
+    }
+
+    $('chartEmptyState').hidden = true;
+    const vols = readings.map((r) => Number(r.volume_liter));
+    const minV = Math.min(...vols);
+    const maxV = Math.max(...vols);
+    const maxAxis = Math.max(cap, maxV, 5);
+    $('kpiMinVol').textContent = `${minV.toFixed(2)} L`;
+    $('kpiMaxVol').textContent = `${maxV.toFixed(2)} L`;
+    $('kpiLastPoint').textContent = `Terakhir: ${fmtDateTime(readings[readings.length - 1].recorded_at)}`;
+
+    const W = 960;
+    const H = 340;
+    const pad = { top: 20, right: 24, bottom: 38, left: 52 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    const times = readings.map((r) => new Date(r.recorded_at).getTime());
+    const minT = times[0];
+    const maxT = times[times.length - 1];
+    const spanT = Math.max(60000, maxT - minT);
+
+    const xOf = (t) => pad.left + ((t - minT) / spanT) * plotW;
+    const yOf = (v) => pad.top + (1 - Math.max(0, Math.min(1, v / maxAxis))) * plotH;
+
+    // Grid & Y labels
+    let gridSvg = '';
+    for (let i = 0; i <= 4; i++) {
+      const val = (maxAxis * i) / 4;
+      const y = yOf(val);
+      gridSvg += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#31353e" stroke-dasharray="3 3" stroke-width="1"/>`;
+      gridSvg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" fill="#87929a" font-family="Space Mono, monospace" font-size="10">${val.toFixed(1)}L</text>`;
+    }
+    $('chartGrid').innerHTML = gridSvg;
+
+    // Threshold tripwires
+    const thr = [
+      { label: 'RENDAH', pct: Number(m.threshold_rendah_pct ?? 20), color: '#f59e0b' },
+      { label: 'KRITIS', pct: Number(m.threshold_kritis_pct ?? 10), color: '#f97316' },
+      { label: 'HABIS', pct: Number(m.threshold_habis_pct ?? 4), color: '#ef4444' },
+    ];
+    $('chartThresholds').innerHTML = thr.map((t) => {
+      const y = yOf((cap * t.pct) / 100);
+      return `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="${t.color}" stroke-opacity="0.55" stroke-dasharray="5 4" stroke-width="1.2"/>
+        <text x="${W - pad.right - 4}" y="${y - 4}" text-anchor="end" fill="${t.color}" font-family="Space Mono, monospace" font-size="9" font-weight="700">${t.label} ${t.pct}%</text>`;
+    }).join('');
+
+    // Segments & standby gaps (> 2.5h for 24h or > 8h for 7d)
+    const gapLimitMs = (state.chartRange === '7d' ? 8 : 2.5) * 3600 * 1000;
+    const segments = [];
+    const gaps = [];
+    let currentSeg = [];
+
+    readings.forEach((r, idx) => {
+      const pt = { x: xOf(times[idx]), y: yOf(Number(r.volume_liter)), r };
+      if (idx > 0 && times[idx] - times[idx - 1] > gapLimitMs) {
+        if (currentSeg.length) segments.push(currentSeg);
+        gaps.push({ x1: xOf(times[idx - 1]), x2: pt.x });
+        currentSeg = [pt];
+      } else {
+        currentSeg.push(pt);
+      }
+    });
+    if (currentSeg.length) segments.push(currentSeg);
+
+    $('chartGaps').innerHTML = gaps.map((g) => {
+      const w = Math.max(4, g.x2 - g.x1);
+      const mid = g.x1 + w / 2;
+      return `<rect x="${g.x1}" y="${pad.top}" width="${w}" height="${plotH}" fill="url(#dataGapHatch)"/>` +
+        (w > 54 ? `<text x="${mid}" y="${pad.top + 16}" text-anchor="middle" fill="#87929a" font-family="Space Mono, monospace" font-size="9">JEDA // OFFLINE</text>` : '');
+    }).join('');
+
+    $('chartArea').innerHTML = segments.map((seg) => {
+      if (seg.length < 2) return '';
+      const dLine = seg.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const dArea = `${dLine} L${seg[seg.length - 1].x.toFixed(1)},${pad.top + plotH} L${seg[0].x.toFixed(1)},${pad.top + plotH} Z`;
+      return `<path d="${dArea}" fill="url(#chartAreaGrad)"/>`;
+    }).join('');
+
+    $('chartLine').innerHTML = segments.map((seg) => {
+      if (seg.length < 2) return '';
+      const dLine = seg.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      return `<path d="${dLine}" fill="none" stroke="#38bdf8" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    }).join('');
+
+    // Points + hover hooks
+    const pointsEl = $('chartPoints');
+    pointsEl.innerHTML = readings.map((r, idx) => {
+      const cx = xOf(times[idx]).toFixed(1);
+      const cy = yOf(Number(r.volume_liter)).toFixed(1);
+      const col = STATUS_COLORS[r.water_status] || '#38bdf8';
+      return `<circle class="chart-dot" data-idx="${idx}" cx="${cx}" cy="${cy}" r="4.5" fill="${col}" stroke="#0a0e16" stroke-width="1.5" style="cursor:pointer"/>`;
+    }).join('');
+
+    pointsEl.querySelectorAll('.chart-dot').forEach((dot) => {
+      dot.addEventListener('mouseenter', (ev) => {
+        const rec = readings[Number(dot.dataset.idx)];
+        const tip = $('chartTooltip');
+        tip.innerHTML = `<strong>${Number(rec.volume_liter).toFixed(2)} L (${rec.percentage}%)</strong><br>${rec.water_status} • ${fmtDateTime(rec.recorded_at)}`;
         tip.hidden = false;
+        const rect = $('chartStage').getBoundingClientRect();
+        tip.style.left = `${Math.min(rect.width - 190, Math.max(8, ev.clientX - rect.left + 10))}px`;
+        tip.style.top = `${Math.max(8, ev.clientY - rect.top - 48)}px`;
       });
-      c.addEventListener('mouseleave', () => { tip.hidden = true; });
+      dot.addEventListener('mouseleave', () => {
+        $('chartTooltip').hidden = true;
+      });
+    });
+
+    // X-axis tick labels
+    const tickCount = Math.min(5, readings.length);
+    let axesSvg = '';
+    for (let i = 0; i < tickCount; i++) {
+      const idx = tickCount === 1 ? 0 : Math.round((i * (readings.length - 1)) / (tickCount - 1));
+      const x = xOf(times[idx]);
+      axesSvg += `<text x="${x}" y="${H - 12}" text-anchor="middle" fill="#87929a" font-family="Space Mono, monospace" font-size="10">${fmtShortTime(readings[idx].recorded_at, state.chartRange)}</text>`;
     }
-    svg.append(c);
+    $('chartAxes').innerHTML = axesSvg;
   }
-  const last = rows[rows.length - 1];
-  svg.setAttribute('aria-label',
-    `Grafik volume air ${ui.range === '7d' ? '7 hari' : '24 jam'} terakhir, ${rows.length} titik. Terakhir ${last.volume_liter.toFixed(2)} liter dari ${last.capacity_liter} liter.`);
-}
 
-document.querySelectorAll('.seg button').forEach((b) =>
-  b.addEventListener('click', () => {
-    ui.range = b.dataset.range;
-    document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    drawChart();
-  }));
+  function exportCsv() {
+    if (!state.readings.length) {
+      showToast('Belum ada data pembacaan untuk diekspor.', true);
+      return;
+    }
+    const header = 'recorded_at,volume_liter,percentage,water_status,capacity_liter,record_reason\n';
+    const rows = state.readings.map((r) => [
+      r.recorded_at,
+      Number(r.volume_liter).toFixed(2),
+      r.percentage,
+      r.water_status,
+      r.capacity_liter,
+      r.record_reason || '',
+    ].join(',')).join('\n');
 
-// ---- Form ----
-document.querySelectorAll('input[name=cap]').forEach((r) => r.addEventListener('change', () => {
-  ui.capDirty = true;
-  const v = Number(document.querySelector('input[name=cap]:checked')?.value);
-  updateZoneBars(Number($('#thH').value), Number($('#thK').value), Number($('#thR').value), v);
-}));
-['#thH', '#thK', '#thR'].forEach((s) => $(s).addEventListener('input', () => {
-  ui.thrDirty = true;
-  $(s).removeAttribute('aria-invalid');
-  updateZoneBars(Number($('#thH').value), Number($('#thK').value), Number($('#thR').value));
-}));
-
-async function mutate(btn, fn, okMsg) {
-  btn.disabled = true;
-  try {
-    await fn();
-    toast(okMsg);
-    await refresh();
-    drawChart();
-  } catch (e) {
-    toast(`Gagal: ${e.message}`);
-    throw e;
-  } finally {
-    btn.disabled = btn === $('#tareBtn') && ui.last?.tare_state === 'TARE_IN_PROGRESS';
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `water-telemetry-${state.chartRange}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Berhasil mengekspor ${state.readings.length} baris CSV.`);
   }
-}
 
-$('#capForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const v = Number(document.querySelector('input[name=cap]:checked')?.value);
-  if (!v || v === ui.last?.capacity_liter) return toast('Kapasitas tidak berubah.');
-  if (!confirm(`Ganti kapasitas ke ${v} L? Status air dihentikan sampai Anda melakukan tare ulang dengan galon kosong.`)) return;
-  await mutate($('#capBtn'), () => api('/device', { method: 'PATCH', body: { capacity_liter: v } }), `Kapasitas ${v} L diterapkan. Lakukan tare.`)
-    .then(() => (ui.capDirty = false), () => {});
-});
+  // Tab 4: Pengaturan Ambang
+  function populateThresholdsFromMonitoring(m, force) {
+    if (!force && state.thresholdsDirty && state.lastConfigVersion === m.config_version) {
+      updateThresholdPreview();
+      return;
+    }
+    state.lastConfigVersion = m.config_version;
+    state.thresholdsDirty = false;
+    setThresholdInputs(
+      Number(m.threshold_habis_pct ?? 4),
+      Number(m.threshold_kritis_pct ?? 10),
+      Number(m.threshold_rendah_pct ?? 20)
+    );
+  }
 
-$('#thrForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const h = Number($('#thH').value), k = Number($('#thK').value), r = Number($('#thR').value);
-  const err = $('#thrErr');
-  const ok = [h, k, r].every(Number.isInteger) && h >= 0 && h < k && k < r && r < 100;
-  err.hidden = ok;
-  ['#thH', '#thK', '#thR'].forEach((s) => (ok ? $(s).removeAttribute('aria-invalid') : $(s).setAttribute('aria-invalid', 'true')));
-  if (!ok) { err.textContent = 'Isi bilangan bulat dengan urutan 0 ≤ HABIS < KRITIS < RENDAH < 100.'; return; }
-  await mutate($('#thrBtn'), () => api('/device', { method: 'PATCH', body: { threshold_habis_pct: h, threshold_kritis_pct: k, threshold_rendah_pct: r } }), 'Batas status disimpan.')
-    .then(() => (ui.thrDirty = false), () => {});
-});
+  function setThresholdInputs(h, k, r) {
+    $('thresholdHabisRange').value = String(h);
+    $('thresholdHabisInput').value = String(h);
+    $('thresholdKritisRange').value = String(k);
+    $('thresholdKritisInput').value = String(k);
+    $('thresholdRendahRange').value = String(r);
+    $('thresholdRendahInput').value = String(r);
+    updateThresholdPreview();
+  }
 
-const dlg = $('#tareDlg');
-$('#tareBtn').addEventListener('click', () => { $('#tareChk').checked = false; $('#tareOk').disabled = true; dlg.showModal(); });
-$('#tareChk').addEventListener('change', (e) => ($('#tareOk').disabled = !e.target.checked));
-$('#tareCancel').addEventListener('click', () => dlg.close());
-$('#tareDlgForm').addEventListener('submit', async () => {
-  await mutate($('#tareBtn'), () => api('/tare', { method: 'POST', body: { confirm_empty: true } }), 'Perintah tare dikirim ke perangkat.').catch(() => {});
-});
+  function updateThresholdPreview() {
+    const cap = Number(state.monitoring?.capacity_liter) || 5;
+    const h = Number($('thresholdHabisInput').value);
+    const k = Number($('thresholdKritisInput').value);
+    const r = Number($('thresholdRendahInput').value);
 
-refresh();
-drawChart();
-setInterval(refresh, POLL_MS);
-setInterval(drawChart, CHART_REFRESH_MS);
+    const hLit = ((cap * h) / 100).toFixed(2);
+    const kLit = ((cap * k) / 100).toFixed(2);
+    const rLit = ((cap * r) / 100).toFixed(2);
+
+    $('specCapText').textContent = `${cap.toFixed(1)} Liter`;
+    $('specLitMax').textContent = `${cap.toFixed(2)} L`;
+    $('habisLiterPreview').textContent = `<= ${hLit} L`;
+    $('kritisLiterPreview').textContent = `<= ${kLit} L`;
+    $('rendahLiterPreview').textContent = `<= ${rLit} L`;
+
+    $('specLabelHabis').textContent = `Habis <= ${h}%`;
+    $('specLitHabis').textContent = `${hLit} L`;
+    $('specLabelKritis').textContent = `Kritis <= ${k}%`;
+    $('specLitKritis').textContent = `${kLit} L`;
+    $('specLabelRendah').textContent = `Rendah <= ${r}%`;
+    $('specLitRendah').textContent = `${rLit} L`;
+
+    const valid = Number.isInteger(h) && Number.isInteger(k) && Number.isInteger(r) &&
+      h >= 0 && h < k && k < r && r < 100;
+
+    if (valid) {
+      $('specBarHabis').style.width = `${h}%`;
+      $('specBarKritis').style.width = `${k - h}%`;
+      $('specBarRendah').style.width = `${r - k}%`;
+      $('specBarNormal').style.width = `${100 - r}%`;
+    }
+
+    const box = $('thresholdValidationBox');
+    const chip = $('thresholdValidChip');
+    const msg = $('thresholdValidationMsg');
+    box.classList.toggle('is-invalid', !valid);
+    chip.className = 'chip mono ' + (valid ? 'is-valid' : 'is-danger');
+    chip.textContent = valid ? 'VALID' : 'TIDAK VALID';
+    msg.textContent = valid
+      ? 'Konfigurasi ambang memenuhi aturan 0 <= HABIS < KRITIS < RENDAH < 100 (+1% hysteresis pemulihan).'
+      : 'Urutan ambang harus bilangan bulat dengan syarat 0 <= HABIS < KRITIS < RENDAH < 100.';
+    $('saveThresholdsBtn').disabled = !valid;
+    return valid;
+  }
+
+  // Polling & Mutations
+  async function pollMonitoring() {
+    try {
+      const m = await apiJson('/api/monitoring');
+      state.monitoring = m;
+      renderTopbarAndBanner(m);
+      renderGallonAndReadout(m);
+      renderTareTab(m);
+      populateThresholdsFromMonitoring(m, false);
+      if (state.readings.length > 0 || state.activeTab === 'chart') renderChart();
+    } catch {
+      $('connBadge').classList.remove('is-online');
+      $('connBadge').classList.add('is-offline');
+      $('connBadgeText').textContent = 'API ERROR';
+    }
+  }
+
+  async function applyCapacityChange() {
+    const m = state.monitoring;
+    if (!m || state.selectedCapacity === m.capacity_liter) return;
+    if (m.tare_state === 'READY') {
+      const ok = window.confirm(
+        `Mengganti kapasitas galon ke ${state.selectedCapacity} Liter akan mewajibkan kalibrasi Tare ulang. Lanjutkan?`
+      );
+      if (!ok) return;
+    }
+
+    try {
+      $('applyCapacityBtn').disabled = true;
+      await apiJson('/api/device', {
+        method: 'PATCH',
+        body: JSON.stringify({ capacity_liter: state.selectedCapacity }),
+      });
+      state.capacityDirty = false;
+      showToast(`Kapasitas diperbarui ke ${state.selectedCapacity} Liter. Lanjutkan Tare galon kosong.`);
+      await pollMonitoring();
+    } catch (err) {
+      showToast(`Gagal mengubah kapasitas: ${err.message}`, true);
+    }
+  }
+
+  async function submitTare() {
+    try {
+      $('confirmTareSubmitBtn').disabled = true;
+      const res = await apiJson('/api/tare', {
+        method: 'POST',
+        body: JSON.stringify({ confirm_empty: true }),
+      });
+      state.lastTareRequestedAt = res.requested_at || new Date().toISOString();
+      $('tareModalConfirmView').hidden = true;
+      $('tareModalProgressView').hidden = false;
+      $('tareProgressMsg').textContent = res.tare_message || 'Perintah Tare terkirim ke ESP32.';
+      startTareCountdown();
+      await pollMonitoring();
+    } catch (err) {
+      showToast(`Gagal memulai Tare: ${err.message}`, true);
+    } finally {
+      $('confirmTareSubmitBtn').disabled = false;
+    }
+  }
+
+  async function saveThresholds() {
+    if (!updateThresholdPreview()) return;
+    const payload = {
+      threshold_habis_pct: Number($('thresholdHabisInput').value),
+      threshold_kritis_pct: Number($('thresholdKritisInput').value),
+      threshold_rendah_pct: Number($('thresholdRendahInput').value),
+    };
+    try {
+      $('saveThresholdsBtn').disabled = true;
+      await apiJson('/api/device', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      state.thresholdsDirty = false;
+      showToast('Ambang batas status air berhasil disimpan dan disinkronkan.');
+      await pollMonitoring();
+      if (state.activeTab === 'chart') await loadReadings();
+    } catch (err) {
+      showToast(`Gagal menyimpan ambang: ${err.message}`, true);
+      $('saveThresholdsBtn').disabled = false;
+    }
+  }
+
+  function bindThresholdPair(rangeId, inputId) {
+    const rEl = $(rangeId);
+    const nEl = $(inputId);
+    rEl.addEventListener('input', () => {
+      state.thresholdsDirty = true;
+      nEl.value = rEl.value;
+      updateThresholdPreview();
+    });
+    nEl.addEventListener('input', () => {
+      state.thresholdsDirty = true;
+      rEl.value = nEl.value;
+      updateThresholdPreview();
+    });
+  }
+
+  function init() {
+    document.querySelectorAll('.nav-tab').forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    $('quickGoTareBtn').addEventListener('click', () => switchTab('tare'));
+    $('bannerActionBtn').addEventListener('click', () => {
+      const dest = $('bannerActionBtn').dataset.goto || 'tare';
+      switchTab(dest);
+    });
+
+    [$('capCard5'), $('capCard10')].forEach((card) => {
+      card.addEventListener('click', () => {
+        state.selectedCapacity = Number(card.dataset.capacity);
+        state.capacityDirty = true;
+        if (state.monitoring) renderTareTab(state.monitoring);
+      });
+    });
+    $('applyCapacityBtn').addEventListener('click', applyCapacityChange);
+
+    $('confirmEmptyCheck').addEventListener('change', () => {
+      if (state.monitoring) renderTareTab(state.monitoring);
+    });
+
+    $('openTareModalBtn').addEventListener('click', () => {
+      $('tareModalConfirmView').hidden = false;
+      $('tareModalProgressView').hidden = true;
+      $('tareModal').hidden = false;
+    });
+
+    $('cancelTareModalBtn').addEventListener('click', () => {
+      $('tareModal').hidden = true;
+    });
+    $('closeTareProgressBtn').addEventListener('click', () => {
+      stopTareCountdown();
+      $('tareModal').hidden = true;
+    });
+    $('confirmTareSubmitBtn').addEventListener('click', submitTare);
+
+    document.querySelectorAll('.range-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.chartRange = btn.dataset.range;
+        document.querySelectorAll('.range-btn').forEach((b) => {
+          b.classList.toggle('is-active', b.dataset.range === state.chartRange);
+        });
+        loadReadings();
+      });
+    });
+
+    $('refreshChartBtn').addEventListener('click', loadReadings);
+    $('exportCsvBtn').addEventListener('click', exportCsv);
+
+    bindThresholdPair('thresholdHabisRange', 'thresholdHabisInput');
+    bindThresholdPair('thresholdKritisRange', 'thresholdKritisInput');
+    bindThresholdPair('thresholdRendahRange', 'thresholdRendahInput');
+
+    $('resetThresholdsBtn').addEventListener('click', () => {
+      state.thresholdsDirty = true;
+      setThresholdInputs(DEFAULT_THRESHOLDS.habis, DEFAULT_THRESHOLDS.kritis, DEFAULT_THRESHOLDS.rendah);
+      showToast('Nilai default (4% / 10% / 20%) dimuat. Klik Simpan Pengaturan untuk menerapkan.');
+    });
+    $('saveThresholdsBtn').addEventListener('click', saveThresholds);
+
+    setThresholdInputs(DEFAULT_THRESHOLDS.habis, DEFAULT_THRESHOLDS.kritis, DEFAULT_THRESHOLDS.rendah);
+    pollMonitoring();
+    loadReadings();
+
+    setInterval(pollMonitoring, POLL_INTERVAL_MS);
+    setInterval(() => {
+      if (state.activeTab === 'chart') loadReadings();
+    }, CHART_REFRESH_INTERVAL_MS);
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  }
+})();

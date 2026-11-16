@@ -1,370 +1,758 @@
 <!doctype html>
-<html lang="id">
+<html class="dark" lang="id">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
-  <title>Smart Water Dispenser — Monitoring Level Air</title>
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Water System | Hydro-Telemetry Mission Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
-  <!-- Sprite ikon vektor & clipPath siluet galon dispenser -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-    <defs>
-      <!-- Bentuk galon dispenser lebar dengan leher dan lekukan badan -->
-      <clipPath id="gallon-clip" clipPathUnits="userSpaceOnUse">
-        <path d="M40 20H80V29C80 34 86 38 96 44C106 50 112 60 112 72V82C112 85 110 87 109 89C107 92 107 96 109 99C110 101 112 103 112 106V116C112 119 110 121 109 123C107 126 107 130 109 133C110 135 112 137 112 140V162C112 172 104 180 94 180H26C16 180 8 172 8 162V140C8 137 10 135 11 133C13 130 13 126 11 123C10 121 8 119 8 116V106C8 103 10 101 11 99C13 96 13 92 11 89C10 87 8 85 8 82V72C8 60 14 50 24 44C34 38 40 34 40 29V20Z"/>
-      </clipPath>
-    </defs>
-
-    <!-- Logo galon untuk header -->
-    <symbol id="i-gallon" viewBox="0 0 24 24">
-      <path d="M9 3h6v2.5c0 1 .7 1.8 2 2.6 1.8 1.1 3 2.7 3 4.7V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6.2c0-2 1.2-3.6 3-4.7 1.3-.8 2-1.6 2-2.6V3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-      <path d="M8 3h8M5 13h14M5 16.5h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-    </symbol>
-    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.2 6 10.6a6 6 0 0 1-12 0C6 9.2 12 3 12 3z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8.5 12.5 2.5 2.5 4.8-5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19L12 3.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 9.5v4.5M12 17v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-crit" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M12 7.5v6M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-empty" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-tare" viewBox="0 0 24 24"><path d="M12 3v4M5 20h14M6.5 20 8 10h8l1.5 10M9 10a3 3 0 1 1 6 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6 12.5a9.5 9.5 0 0 1 12 0M9 16a5 5 0 0 1 6 0M12 19.5v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 4-2.4M21 9a14 14 0 0 0-8-3M6 12.5a9.5 9.5 0 0 1 3-1.8M18 12.5a9.5 9.5 0 0 0-2.5-1.6M9 16a5 5 0 0 1 6 0M12 19.5v.01M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14 16 10M4.9 19a9 9 0 1 1 14.2 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></symbol>
-    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="6" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="12" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/><circle cx="11" cy="18" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/></symbol>
-    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19h16M4 15l4-4 4 2 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.4 14.5A8.5 8.5 0 0 1 9.5 3.6a8.5 8.5 0 1 0 10.9 10.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
-  </svg>
-
-  <a class="skip" href="#main">Lewati ke konten utama</a>
-
-  <div class="top-wrap">
-    <header class="top">
+  <header class="topbar" role="banner">
+    <div class="topbar-inner">
       <div class="brand">
-        <div class="brand-logo" aria-hidden="true">
-          <svg class="ic ic-lg"><use href="#i-gallon"/></svg>
+        <span class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="13" y="3" width="10" height="4" rx="1.2" fill="#38bdf8"/>
+            <path d="M13.5 7H22.5V10.5L28 14.5V29.5C28 31.433 26.433 33 24.5 33H11.5C9.567 33 8 31.433 8 29.5V14.5L13.5 10.5V7Z" fill="#181c24" stroke="#8ed5ff" stroke-width="1.8"/>
+            <path d="M8 17.5C5.2 17.5 5.2 25 8 25" stroke="#8ed5ff" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9.2 21.5C12.5 19.8 16 23 19.5 21.5C22.2 20.3 24.8 20.8 26.8 21.8V29.5C26.8 30.77 25.77 31.8 24.5 31.8H11.5C10.23 31.8 9.2 30.77 9.2 29.5V21.5Z" fill="#38bdf8" fill-opacity="0.85"/>
+          </svg>
+        </span>
+        <div class="brand-title-group">
+          <span class="brand-name">Smart Water System</span>
+          <span class="device-pill mono" id="deviceIdPill">dispenser-001</span>
         </div>
-        <div>
-          <div class="brand-row">
-            <h1>Smart Water Dispenser</h1>
-            <span class="chip-meta" id="cfgMeta">Konfigurasi v1</span>
+      </div>
+
+      <nav class="main-nav" aria-label="Navigasi Dashboard">
+        <button type="button" class="nav-tab is-active" data-tab="telemetry" aria-current="page">Live Telemetry</button>
+        <button type="button" class="nav-tab" data-tab="tare">Tare &amp; Kalibrasi</button>
+        <button type="button" class="nav-tab" data-tab="chart">Grafik Analitik</button>
+        <button type="button" class="nav-tab" data-tab="thresholds">Pengaturan Ambang</button>
+      </nav>
+
+      <div class="topbar-status">
+        <div class="status-pill is-offline" id="connBadge" role="status" aria-live="polite">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span class="mono" id="connBadgeText">MENUNGGU</span>
+        </div>
+        <div class="fresh-pill mono" id="freshBadge">Memeriksa...</div>
+      </div>
+    </div>
+
+    <nav class="mobile-nav" aria-label="Navigasi Mobile">
+      <button type="button" class="nav-tab is-active" data-tab="telemetry">Telemetry</button>
+      <button type="button" class="nav-tab" data-tab="tare">Tare</button>
+      <button type="button" class="nav-tab" data-tab="chart">Grafik</button>
+      <button type="button" class="nav-tab" data-tab="thresholds">Ambang</button>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <!-- Global System Status Banner -->
+    <section class="banner" id="systemBanner" role="status" aria-live="polite">
+      <div class="banner-left">
+        <span class="banner-badge" id="bannerStatePill">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span id="bannerStateTitle">Menghubungkan ke Server</span>
+        </span>
+        <span class="banner-sub" id="bannerMessage">Memuat telemetri perangkat terbaru...</span>
+      </div>
+      <div class="banner-right">
+        <div class="banner-meta mono">
+          <span class="meta-label">Perangkat:</span>
+          <strong id="bannerDeviceId">dispenser-001</strong>
+          <span class="meta-sep" aria-hidden="true">•</span>
+          <span class="meta-label">Sinkron:</span>
+          <strong id="lastUpdateText">--</strong>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary is-hidden" id="bannerActionBtn">Tindak Lanjut</button>
+      </div>
+    </section>
+
+    <!-- TAB 1: LIVE TELEMETRY -->
+    <section class="tab-panel is-active" id="panel-telemetry" data-tab-panel="telemetry">
+      <!-- Telemetry Health Strip -->
+      <section class="health-strip" aria-label="Telemetry Health dan Proteksi Sensor">
+        <div class="health-info">
+          <div class="health-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
           </div>
-          <p class="sub"><span id="devCode">dispenser-001</span> · Monitoring Level &amp; Refill Alert</p>
-        </div>
-      </div>
-
-      <div class="top-right">
-        <div class="badges" role="status" aria-live="polite">
-          <span id="conn" class="badge b-off"><span class="dot" aria-hidden="true"></span><svg class="ic" aria-hidden="true"><use href="#i-wifi-off"/></svg><span>MEMUAT…</span></span>
-          <span id="fresh" class="badge b-off"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>—</span></span>
-        </div>
-        <div class="top-actions">
-          <button type="button" id="refreshBtn" class="icon-btn" aria-label="Segarkan data sekarang" title="Segarkan data sekarang">
-            <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>
-          </button>
-          <button type="button" id="themeBtn" class="icon-btn" aria-label="Ganti tema terang atau gelap" title="Ganti tema terang/gelap">
-            <svg class="ic" aria-hidden="true"><use id="themeIcon" href="#i-moon"/></svg>
-          </button>
-        </div>
-      </div>
-    </header>
-  </div>
-
-  <div id="banner" class="banner b-crit" role="alert" hidden></div>
-
-  <main id="main">
-    <div id="notice" class="notice" role="status" hidden></div>
-
-    <!-- Baris Utama: Visualisasi Galon Dispenser + 4 Kartu Metrik -->
-    <section class="hero-grid" aria-label="Monitoring air real-time">
-      <article class="panel gallon-card" aria-label="Visualisasi level air galon">
-        <div class="gallon-head">
           <div>
-            <span class="card-kicker">Visualisasi Galon</span>
-            <p class="gallon-title">Level Air Aktif</p>
+            <div class="health-title-row">
+              <h2>Telemetry Health &amp; Proteksi Sensor</h2>
+              <span class="chip mono" id="healthFreshChip">DATA CHECKING</span>
+            </div>
+            <p class="health-desc" id="healthDesc">
+              Validasi data aktif: anomali sinyal load cell atau tare belum siap dipisahkan agar tidak terbaca sebagai galon habis palsu.
+            </p>
           </div>
-          <span id="tankCapTag" class="chip-meta">5 L</span>
         </div>
+        <div class="health-badges mono">
+          <div class="kv-pill">
+            <span class="kv-label">Watchdog:</span>
+            <strong id="watchdogText">--</strong>
+          </div>
+          <div class="kv-pill">
+            <span class="kv-label">False-Empty Lock:</span>
+            <strong id="falseEmptyLockText">--</strong>
+          </div>
+        </div>
+      </section>
 
-        <div class="gallon-stage">
-          <div class="gallon-wrap" id="tankVessel" data-status="NONE">
-            <div class="gallon-box">
-              <div class="gallon-mask">
-                <div class="gallon-fill" id="tankFill" style="height:0%">
-                  <div class="gallon-surface" aria-hidden="true"></div>
-                </div>
-                <!-- Garis batas RENDAH, KRITIS, HABIS di dalam badan galon agar rapi tanpa bertumpuk -->
-                <div class="gallon-mark m-r" id="markR" style="bottom:20%"></div>
-                <div class="gallon-mark m-k" id="markK" style="bottom:10%"></div>
-                <div class="gallon-mark m-h" id="markH" style="bottom:4%"></div>
+      <!-- Main Telemetry Grid -->
+      <div class="telemetry-grid">
+        <!-- Left 5 cols: Visual Galon Air -->
+        <article class="card card-gallon">
+          <div class="card-head">
+            <div>
+              <div class="card-title-row">
+                <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="9" y="2" width="6" height="3" rx="0.8"/>
+                  <path d="M9 5h6v2l3.5 2.5V20a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9.5L9 7V5z"/>
+                </svg>
+                <h2>Visual Galon Air</h2>
               </div>
-              <svg class="gallon-svg" width="120" height="186" viewBox="0 0 120 186" fill="none" aria-hidden="true">
-                <!-- Tutup galon -->
-                <rect x="37" y="4" width="46" height="16" rx="4" fill="var(--surface-sub)" stroke="currentColor" stroke-width="2.2"/>
-                <line x1="44" y1="9" x2="76" y2="9" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.35" stroke-linecap="round"/>
-                <!-- Kontur badan galon 5L/10L -->
-                <path d="M40 20H80V29C80 34 86 38 96 44C106 50 112 60 112 72V82C112 85 110 87 109 89C107 92 107 96 109 99C110 101 112 103 112 106V116C112 119 110 121 109 123C107 126 107 130 109 133C110 135 112 137 112 140V162C112 172 104 180 94 180H26C16 180 8 172 8 162V140C8 137 10 135 11 133C13 130 13 126 11 123C10 121 8 119 8 116V106C8 103 10 101 11 99C13 96 13 92 11 89C10 87 8 85 8 82V72C8 60 14 50 24 44C34 38 40 34 40 29V20Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
-                <!-- Garis lekukan rusuk galon -->
-                <path d="M16 94H104M16 128H104" stroke="currentColor" stroke-width="1.4" stroke-opacity="0.22" stroke-linecap="round"/>
+              <p class="card-sub">Monitoring volume fisik wadah real-time</p>
+            </div>
+            <span class="cap-badge mono" id="gallonCapBadge">5.0 LITER</span>
+          </div>
+
+          <div class="availability-strip">
+            <div class="avail-left">
+              <span class="pulse-dot" id="availDot" aria-hidden="true"></span>
+              <span class="avail-label">Status Ketersediaan:</span>
+            </div>
+            <span class="status-badge" id="waterStatusBadge">MEMUAT</span>
+          </div>
+
+          <div class="gallon-stage">
+            <div class="gallon-scale mono" aria-hidden="true">
+              <div class="scale-row">
+                <span id="scaleMaxLabel">5.0 L</span>
+                <small>(Penuh)</small>
+              </div>
+              <div class="scale-live-pill" id="scaleLivePill">
+                <span id="scaleLiveVol">-- L</span>
+                <small id="scaleLivePct">(--%)</small>
+              </div>
+              <div class="scale-row">
+                <span id="scaleMidLabel">2.5 L</span>
+                <small>(50%)</small>
+              </div>
+              <div class="scale-row is-critical">
+                <span class="dot-critical"></span>
+                <span id="scaleKritisLabel">0.5 L</span>
+                <small>(Kritis)</small>
+              </div>
+              <div class="scale-row is-muted">
+                <span>0.0 L</span>
+                <small>(Kosong)</small>
+              </div>
+            </div>
+
+            <div class="gallon-svg-wrap">
+              <div class="gallon-glow" aria-hidden="true"></div>
+              <svg class="gallon-svg" viewBox="0 0 200 340" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Visualisasi level air galon">
+                <defs>
+                  <linearGradient id="waterFlowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" id="waterStopTop" stop-color="#38bdf8"/>
+                    <stop offset="50%" id="waterStopMid" stop-color="#0ea5e9"/>
+                    <stop offset="100%" id="waterStopBot" stop-color="#006080"/>
+                  </linearGradient>
+                  <linearGradient id="polycarbonateGlass" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+                    <stop offset="8%" stop-color="#ffffff" stop-opacity="0.06"/>
+                    <stop offset="85%" stop-color="#38bdf8" stop-opacity="0.03"/>
+                    <stop offset="100%" stop-color="#ffffff" stop-opacity="0.15"/>
+                  </linearGradient>
+                  <linearGradient id="waterSurfaceHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+                    <stop offset="50%" stop-color="#7bd0ff" stop-opacity="0.88"/>
+                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.55"/>
+                  </linearGradient>
+                  <clipPath id="gallonContourClip">
+                    <path d="M72 40 L128 40 L128 65 L170 85 L170 300 C170 314 160 322 148 322 L52 322 C40 322 30 314 30 300 L30 85 L72 65 Z"/>
+                  </clipPath>
+                </defs>
+
+                <!-- Neck cap -->
+                <rect x="67" y="16" width="66" height="24" rx="3" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+                <rect x="72" y="20" width="56" height="6" rx="1" fill="#0284c7"/>
+
+                <!-- Left Gallon Handle -->
+                <path d="M30 110 C8 110 8 200 30 200" fill="none" opacity="0.85" stroke="#334155" stroke-linecap="round" stroke-width="13"/>
+                <path d="M30 110 C8 110 8 200 30 200" fill="none" opacity="0.5" stroke="#64748b" stroke-linecap="round" stroke-width="4"/>
+
+                <!-- Outer Body Base -->
+                <path d="M70 38 L130 38 L130 65 L172 85 L172 302 C172 316 162 324 148 324 L52 324 C38 324 28 316 28 302 L28 85 L70 65 Z" fill="#111827" fill-opacity="0.78" stroke="#334155" stroke-width="1.5"/>
+
+                <!-- Dynamic Water Level Group -->
+                <g clip-path="url(#gallonContourClip)" id="gallonWaterGroup">
+                  <rect id="gallonFillRect" x="20" y="322" width="160" height="0" fill="url(#waterFlowGrad)"/>
+                  <g id="gallonWaveGroup" transform="translate(0, 322)">
+                    <path d="M 10 -4 Q 50 -9 90 -4 T 170 -4 T 250 -4 L 250 10 L 10 10 Z" fill="url(#waterSurfaceHighlight)">
+                      <animateTransform attributeName="transform" type="translate" from="0,0" to="-80,0" dur="3.6s" repeatCount="indefinite"/>
+                    </path>
+                    <path d="M 10 -2 Q 50 3 90 -2 T 170 -2 T 250 -2 L 250 12 L 10 12 Z" fill="#38bdf8" fill-opacity="0.4">
+                      <animateTransform attributeName="transform" type="translate" from="-80,0" to="0,0" dur="5.2s" repeatCount="indefinite"/>
+                    </path>
+                  </g>
+                  <g id="gallonBubbles">
+                    <circle cx="62" cy="285" r="2.5" fill="#ffffff" opacity="0.35">
+                      <animate attributeName="cy" values="305;140" dur="4s" repeatCount="indefinite"/>
+                      <animate attributeName="opacity" values="0;0.45;0" dur="4s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="112" cy="295" r="3.2" fill="#7bd0ff" opacity="0.45">
+                      <animate attributeName="cy" values="312;135" dur="4.8s" repeatCount="indefinite"/>
+                      <animate attributeName="opacity" values="0;0.55;0" dur="4.8s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="144" cy="275" r="2" fill="#ffffff" opacity="0.3">
+                      <animate attributeName="cy" values="298;150" dur="3.4s" repeatCount="indefinite"/>
+                      <animate attributeName="opacity" values="0;0.45;0" dur="3.4s" repeatCount="indefinite"/>
+                    </circle>
+                  </g>
+                  <line x1="45" y1="165" x2="155" y2="165" stroke="#ffffff" stroke-dasharray="140 2" stroke-width="1" opacity="0.16"/>
+                  <line x1="45" y1="242" x2="155" y2="242" stroke="#ffffff" stroke-dasharray="140 2" stroke-width="1" opacity="0.16"/>
+                </g>
+
+                <!-- Dynamic Kritis Tripwire Line -->
+                <line id="gallonThresholdLine" x1="28" x2="172" y1="298" y2="298" stroke="#f97316" stroke-dasharray="5 3" stroke-width="2" opacity="0.9"/>
+
+                <!-- Glass Overlay Highlight -->
+                <path d="M70 38 L130 38 L130 65 L172 85 L172 302 C172 316 162 324 148 324 L52 324 C38 324 28 316 28 302 L28 85 L70 65 Z" fill="url(#polycarbonateGlass)" stroke="#38bdf8" stroke-opacity="0.55" stroke-width="2"/>
+                <path d="M 42 95 L 42 295" fill="none" opacity="0.55" stroke="#ffffff" stroke-linecap="round" stroke-width="3.2"/>
+                <path d="M 48 95 L 48 295" fill="none" opacity="0.28" stroke="#7bd0ff" stroke-linecap="round" stroke-width="1.4"/>
               </svg>
             </div>
+          </div>
 
-            <div class="gallon-readout">
-              <span class="gallon-pct" id="tankPctText">--%</span>
-              <span class="gallon-vol" id="tankVolText">Menunggu data</span>
-              <div class="gallon-legend" aria-label="Ringkasan batas status">
-                <span><i class="s-dot d-warn"></i>R <b id="legR">20%</b></span>
-                <span><i class="s-dot d-crit"></i>K <b id="legK">10%</b></span>
-                <span><i class="s-dot d-empty"></i>H <b id="legH">4%</b></span>
+          <div class="card-foot mono">
+            <span>Kapasitas Galon: <strong id="gallonFooterCap">5.0 Liter</strong></span>
+            <span class="foot-status" id="gallonFooterStatus">Menunggu Pembacaan</span>
+          </div>
+        </article>
+
+        <!-- Right 7 cols: Telemetry Readout, Hardware Preview, Quick Tare -->
+        <div class="telemetry-right">
+          <!-- Volume Air Saat Ini -->
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title-row">
+                  <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M3 3v18h18"/>
+                    <path d="m19 9-5 5-4-4-3 3"/>
+                  </svg>
+                  <h2>Volume Air Saat Ini</h2>
+                </div>
+                <p class="card-sub">Sensor Pembacaan Massa Digital Load Cell (HX711)</p>
+              </div>
+              <span class="chip chip-live mono" id="sensorActiveChip">MENUNGGU</span>
+            </div>
+
+            <div class="volume-main">
+              <div class="volume-readout">
+                <div class="volume-number-row">
+                  <span class="volume-number mono" id="volumeValue">--</span>
+                  <span class="volume-unit">LITER</span>
+                </div>
+                <div class="volume-sub mono">
+                  <span>Kapasitas: <strong id="volumeCapLabel">5.0 L</strong></span>
+                  <span aria-hidden="true">•</span>
+                  <span class="pct-highlight" id="pctValue">Sisa: --%</span>
+                </div>
+              </div>
+
+              <div class="mass-box">
+                <div class="mass-head mono">
+                  <span>Massa Air Terukur</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                    <path d="M7 21h10"/>
+                    <path d="M12 3v18"/>
+                    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+                  </svg>
+                </div>
+                <div class="mass-val mono" id="massValue">-- kg (-- g)</div>
+                <div class="mass-note mono" id="sensorNote">Menunggu pembacaan stabil</div>
               </div>
             </div>
+
+            <div class="level-progress-wrap">
+              <div class="level-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="levelProgressBar">
+                <div class="level-fill" id="levelBarFill" style="width: 0%"></div>
+              </div>
+              <div class="level-labels mono">
+                <span>0% (0.0 L)</span>
+                <span class="is-kritis" id="barThresholdKritis">10% Ambang Kritis</span>
+                <span class="is-live" id="barCurrentPct">--%</span>
+                <span id="barMaxLabel">100% (5.0 L)</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Status Perangkat & Indikator -->
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title-row">
+                  <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                    <rect x="9" y="9" width="6" height="6"/>
+                    <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
+                  </svg>
+                  <h3>Status Perangkat &amp; Indikator</h3>
+                </div>
+                <p class="card-sub">Simulasi indikator lokal &amp; layar OLED/LCD unit dispenser</p>
+              </div>
+            </div>
+
+            <div class="hardware-grid">
+              <div class="actuator-list">
+                <div class="actuator-item">
+                  <div class="actuator-left">
+                    <span class="led-indicator" id="ledDotIndicator" aria-hidden="true"></span>
+                    <div>
+                      <div class="actuator-title">Lampu Indikator LED</div>
+                      <div class="actuator-sub" id="ledRuleDesc">Merah saat level kritis atau habis</div>
+                    </div>
+                  </div>
+                  <span class="state-badge mono" id="ledStateBadge">OFF</span>
+                </div>
+
+                <div class="actuator-item">
+                  <div class="actuator-left">
+                    <span class="buzzer-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                      </svg>
+                    </span>
+                    <div>
+                      <div class="actuator-title">Alarm Buzzer</div>
+                      <div class="actuator-sub" id="buzzerRuleDesc">Peringatan audio saat kritis</div>
+                    </div>
+                  </div>
+                  <span class="state-badge mono" id="buzzerStateBadge">DIAM</span>
+                </div>
+              </div>
+
+              <div class="lcd-panel">
+                <div class="lcd-header mono">
+                  <span><span class="pulse-dot" aria-hidden="true"></span>Layar LCD 16x2 I2C</span>
+                  <strong id="lcdStatusPill">WAITING</strong>
+                </div>
+                <div class="lcd-screen mono" aria-label="Simulasi Layar LCD 16x2">
+                  <div class="lcd-line" id="lcdLine1">VOL: --.-L [--%]</div>
+                  <div class="lcd-line" id="lcdLine2">STATUS: WAIT</div>
+                </div>
+                <div class="lcd-foot mono">Sinkronisasi real-time MQTT &amp; I2C</div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Quick Calibration CTA -->
+          <article class="card card-cta">
+            <div>
+              <div class="cta-title-row">
+                <h3>Kalibrasi &amp; Penggantian Galon</h3>
+                <span class="chip mono" id="calibStatusBadge">MEMERIKSA</span>
+              </div>
+              <p class="card-sub">Ganti ukuran galon atau reset titik nol (Tare) saat wadah baru masih kosong.</p>
+            </div>
+            <button type="button" class="btn btn-primary" id="quickGoTareBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                <path d="M12 3v18M7 21h10"/>
+              </svg>
+              <span>Ganti Galon / Tare</span>
+            </button>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TARE & KALIBRASI -->
+    <section class="tab-panel" id="panel-tare" data-tab-panel="tare" hidden>
+      <div class="page-head-card">
+        <div>
+          <span class="eyebrow mono">Prosedur Kalibrasi Titik Nol</span>
+          <h1>Kalibrasi Tare &amp; Kapasitas Galon</h1>
+          <p class="card-sub">Pastikan ukuran galon aktif sesuai dengan wadah fisik, lalu lakukan Tare dalam keadaan galon kosong.</p>
+        </div>
+        <div class="page-head-meta">
+          <div class="meta-box mono">
+            <span class="meta-label">Status Kalibrasi</span>
+            <strong id="tarePageStatusBadge">MEMERIKSA</strong>
+          </div>
+          <div class="meta-box mono">
+            <span class="meta-label">Config Version</span>
+            <strong id="configVersionText">v--</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="tare-grid">
+        <div class="tare-left">
+          <!-- Step 1: Kapasitas Galon -->
+          <article class="card">
+            <div class="card-head">
+              <div class="step-title">
+                <span class="step-badge mono">1</span>
+                <div>
+                  <h2>Pilih Kapasitas Galon Aktif</h2>
+                  <p class="card-sub">Mengganti kapasitas menaikkan versi konfigurasi dan mewajibkan Tare ulang.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="cap-options" role="radiogroup" aria-label="Pilih kapasitas galon">
+              <button type="button" class="cap-card" id="capCard5" data-capacity="5" aria-checked="true" role="radio">
+                <div class="cap-card-top">
+                  <span class="cap-title">5 Liter</span>
+                  <span class="cap-tag mono">Standar</span>
+                </div>
+                <p class="cap-desc">Galon dispenser ringkas 5.0 Liter (5.000 gram air).</p>
+              </button>
+
+              <button type="button" class="cap-card" id="capCard10" data-capacity="10" aria-checked="false" role="radio">
+                <div class="cap-card-top">
+                  <span class="cap-title">10 Liter</span>
+                  <span class="cap-tag mono">Besar</span>
+                </div>
+                <p class="cap-desc">Galon kapasitas besar 10.0 Liter (10.000 gram air).</p>
+              </button>
+            </div>
+
+            <div class="action-row">
+              <span class="action-hint mono" id="capacityActionHint">Kapasitas aktif sesuai pilihan.</span>
+              <button type="button" class="btn btn-secondary" id="applyCapacityBtn" disabled>Terapkan Kapasitas</button>
+            </div>
+          </article>
+
+          <!-- Step 2: Konfirmasi & Tare -->
+          <article class="card">
+            <div class="card-head">
+              <div class="step-title">
+                <span class="step-badge mono">2</span>
+                <div>
+                  <h2>Konfirmasi &amp; Eksekusi Tare (Zero Offset)</h2>
+                  <p class="card-sub">Perintah dikirim via MQTT menuju ESP32 untuk menyimpan zero offset ke NVS flash.</p>
+                </div>
+              </div>
+            </div>
+
+            <label class="checkbox-card" for="confirmEmptyCheck">
+              <input type="checkbox" id="confirmEmptyCheck">
+              <div>
+                <strong>Konfirmasi Galon Kosong</strong>
+                <span>Saya memastikan wadah galon berada di atas plat Load Cell dalam kondisi benar-benar kosong dan stabil.</span>
+              </div>
+            </label>
+
+            <div class="action-row">
+              <span class="action-hint">Timeout eksekusi perangkat: 60 detik.</span>
+              <button type="button" class="btn btn-primary" id="openTareModalBtn" disabled>Kalibrasi / Tare Galon Kosong</button>
+            </div>
+          </article>
+        </div>
+
+        <aside class="tare-right">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <h2>Status Sinkronisasi Tare</h2>
+                <p class="card-sub">State machine kalibrasi dari ESP32 &amp; server</p>
+              </div>
+            </div>
+
+            <dl class="spec-list mono">
+              <div class="spec-row">
+                <dt>State Perangkat</dt>
+                <dd id="tareStateText">--</dd>
+              </div>
+              <div class="spec-row">
+                <dt>ID Permintaan Tare</dt>
+                <dd id="tareIdText">--</dd>
+              </div>
+              <div class="spec-row">
+                <dt>Waktu Permintaan</dt>
+                <dd id="tareRequestedAtText">--</dd>
+              </div>
+              <div class="spec-row is-block">
+                <dt>Pesan Perangkat</dt>
+                <dd id="tareMessageText">--</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <h2>Prosedur Operasional Aman</h2>
+            </div>
+            <ol class="sop-list">
+              <li>Pastikan tidak ada sisa air di dalam galon sebelum menekan Tare agar bacaan 0.00 L akurat.</li>
+              <li>Jangan menyentuh galon atau plat timbangan selama proses TARE_IN_PROGRESS berlangsung.</li>
+              <li>Jika mengganti ukuran galon (5 L ↔ 10 L), sistem otomatis mengunci status hingga Tare ulang selesai.</li>
+            </ol>
+          </article>
+        </aside>
+      </div>
+    </section>
+
+    <!-- TAB 3: GRAFIK ANALITIK -->
+    <section class="tab-panel" id="panel-chart" data-tab-panel="chart" hidden>
+      <div class="analytics-toolbar">
+        <div class="range-group" role="group" aria-label="Pilih rentang waktu">
+          <button type="button" class="range-btn is-active" data-range="24h">24 JAM</button>
+          <button type="button" class="range-btn" data-range="7d">7 HARI</button>
+        </div>
+        <div class="toolbar-right">
+          <span class="cap-badge mono" id="chartCapBadge">Kapasitas: 5.0 L</span>
+          <button type="button" class="btn btn-sm btn-secondary" id="refreshChartBtn">Refresh</button>
+          <button type="button" class="btn btn-sm btn-primary" id="exportCsvBtn">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <article class="kpi-card">
+          <span class="kpi-label mono">Volume Minimum</span>
+          <strong class="kpi-val mono" id="kpiMinVol">-- L</strong>
+          <span class="kpi-sub">Pembacaan terendah pada rentang</span>
+        </article>
+        <article class="kpi-card">
+          <span class="kpi-label mono">Volume Maksimum</span>
+          <strong class="kpi-val mono" id="kpiMaxVol">-- L</strong>
+          <span class="kpi-sub">Pembacaan tertinggi pada rentang</span>
+        </article>
+        <article class="kpi-card">
+          <span class="kpi-label mono">Total Titik Data</span>
+          <strong class="kpi-val mono" id="kpiPointCount">0</strong>
+          <span class="kpi-sub mono" id="kpiLastPoint">Belum ada pencatatan</span>
+        </article>
+      </div>
+
+      <article class="card chart-card">
+        <div class="card-head">
+          <div>
+            <h2>Tren Volume Air Real-Time</h2>
+            <p class="card-sub">Data aktual dari pencatatan MySQL (perubahan status &amp; interval jam, tanpa interpolasi saat perangkat mati)</p>
+          </div>
+          <div class="chart-legend mono">
+            <span><i class="dot dot-normal"></i>Normal</span>
+            <span><i class="dot dot-rendah"></i>Rendah</span>
+            <span><i class="dot dot-kritis"></i>Kritis</span>
+            <span><i class="dot dot-habis"></i>Habis</span>
+          </div>
+        </div>
+
+        <div class="chart-stage" id="chartStage">
+          <svg id="telemetrySvgChart" viewBox="0 0 960 340" preserveAspectRatio="none" role="img" aria-label="Grafik historis volume air">
+            <defs>
+              <linearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.02"/>
+              </linearGradient>
+              <pattern id="dataGapHatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="0" y2="8" stroke="#87929a" stroke-opacity="0.22" stroke-width="2"/>
+              </pattern>
+            </defs>
+            <g id="chartGrid"></g>
+            <g id="chartGaps"></g>
+            <g id="chartThresholds"></g>
+            <g id="chartArea"></g>
+            <g id="chartLine"></g>
+            <g id="chartPoints"></g>
+            <g id="chartAxes"></g>
+          </svg>
+
+          <div class="chart-tooltip mono" id="chartTooltip" hidden></div>
+
+          <div class="chart-empty" id="chartEmptyState">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M3 3v18h18"/>
+              <path d="m7 14 4-4 3 3 5-6"/>
+            </svg>
+            <strong>Belum ada data historis pada rentang ini.</strong>
+            <span>Data tersimpan otomatis setiap perubahan status air atau pergantian jam saat perangkat online.</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- TAB 4: PENGATURAN AMBANG -->
+    <section class="tab-panel" id="panel-thresholds" data-tab-panel="thresholds" hidden>
+      <!-- Single Spectrum Overview Card -->
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <h2>Spektrum Distribusi Ambang &amp; Level Air</h2>
+            <p class="card-sub">Pratinjau batas transisi status untuk kapasitas aktif <strong id="specCapText">5.0 Liter</strong></p>
+          </div>
+          <span class="chip mono">0 &le; H% &lt; K% &lt; R% &lt; 100%</span>
+        </div>
+
+        <div class="spectrum-bar" aria-label="Spektrum persentase status air">
+          <div class="spec-seg is-habis" id="specBarHabis" style="width: 4%"></div>
+          <div class="spec-seg is-kritis" id="specBarKritis" style="width: 6%"></div>
+          <div class="spec-seg is-rendah" id="specBarRendah" style="width: 10%"></div>
+          <div class="spec-seg is-normal" id="specBarNormal" style="width: 80%"></div>
+        </div>
+
+        <div class="spectrum-boxes mono">
+          <div class="spec-box">
+            <span>0% (Kosong)</span>
+            <strong>0.00 L</strong>
+          </div>
+          <div class="spec-box is-habis">
+            <span id="specLabelHabis">Habis &le; 4%</span>
+            <strong id="specLitHabis">0.20 L</strong>
+          </div>
+          <div class="spec-box is-kritis">
+            <span id="specLabelKritis">Kritis &le; 10%</span>
+            <strong id="specLitKritis">0.50 L</strong>
+          </div>
+          <div class="spec-box is-rendah">
+            <span id="specLabelRendah">Rendah &le; 20%</span>
+            <strong id="specLitRendah">1.00 L</strong>
+          </div>
+          <div class="spec-box is-normal">
+            <span>100% (Penuh)</span>
+            <strong id="specLitMax">5.00 L</strong>
           </div>
         </div>
       </article>
 
-      <div class="cards">
-        <article class="card">
-          <div class="card-top">
-            <h2>Volume Air</h2>
-            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-drop"/></svg></span>
+      <!-- 3 Threshold Cards -->
+      <div class="threshold-grid">
+        <article class="card threshold-card is-habis">
+          <div class="card-head">
+            <div>
+              <span class="level-tag is-habis mono">HABIS</span>
+              <h3>Ambang Habis</h3>
+            </div>
+            <span class="threshold-liter mono" id="habisLiterPreview">&le; 0.20 L</span>
           </div>
-          <p class="val"><span id="vol">--</span><span class="unit">L</span></p>
-          <div class="card-foot">
-            <p class="hint" id="volRangeHint">Kapasitas penuh 5.00 L</p>
-            <p class="hint stale-tag" id="staleVol" hidden>DATA LAMA</p>
-          </div>
-        </article>
-
-        <article class="card">
-          <div class="card-top">
-            <h2>Persentase</h2>
-            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-gauge"/></svg></span>
-          </div>
-          <p class="val"><span id="pct">--</span><span class="unit">%</span></p>
-          <div>
-            <div class="bar" aria-hidden="true"><div id="pctBar"></div></div>
-            <div class="zone-bar" aria-hidden="true">
-              <span id="zHabis" class="z-seg z-h" style="width:4%"></span>
-              <span id="zKritis" class="z-seg z-k" style="width:6%"></span>
-              <span id="zRendah" class="z-seg z-r" style="width:10%"></span>
-              <span id="zNormal" class="z-seg z-n" style="width:80%"></span>
+          <div class="threshold-inputs">
+            <input type="range" id="thresholdHabisRange" min="0" max="97" step="1" aria-label="Slider Ambang Habis">
+            <div class="num-input-wrap mono">
+              <input type="number" id="thresholdHabisInput" min="0" max="97" step="1" aria-label="Persentase Ambang Habis">
+              <span>%</span>
             </div>
           </div>
+          <p class="threshold-response">LED Merah Cepat + Alarm Buzzer Kontinu</p>
         </article>
 
-        <article class="card">
-          <div class="card-top">
-            <h2>Status Air</h2>
-            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-info"/></svg></span>
+        <article class="card threshold-card is-kritis">
+          <div class="card-head">
+            <div>
+              <span class="level-tag is-kritis mono">KRITIS</span>
+              <h3>Ambang Kritis</h3>
+            </div>
+            <span class="threshold-liter mono" id="kritisLiterPreview">&le; 0.50 L</span>
           </div>
-          <p id="status" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></p>
-          <p class="hint" id="actuatorHint">LED: OFF · Buzzer: Mati</p>
+          <div class="threshold-inputs">
+            <input type="range" id="thresholdKritisRange" min="1" max="98" step="1" aria-label="Slider Ambang Kritis">
+            <div class="num-input-wrap mono">
+              <input type="number" id="thresholdKritisInput" min="1" max="98" step="1" aria-label="Persentase Ambang Kritis">
+              <span>%</span>
+            </div>
+          </div>
+          <p class="threshold-response">LED Merah Aktif + Buzzer Peringatan Berkala</p>
         </article>
 
-        <article class="card">
-          <div class="card-top">
-            <h2>Kapasitas Galon</h2>
-            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-gallon"/></svg></span>
+        <article class="card threshold-card is-rendah">
+          <div class="card-head">
+            <div>
+              <span class="level-tag is-rendah mono">RENDAH</span>
+              <h3>Ambang Rendah</h3>
+            </div>
+            <span class="threshold-liter mono" id="rendahLiterPreview">&le; 1.00 L</span>
           </div>
-          <p class="val"><span id="cap">--</span><span class="unit">L</span></p>
-          <p class="hint">Diperbarui: <time id="updated">—</time></p>
+          <div class="threshold-inputs">
+            <input type="range" id="thresholdRendahRange" min="2" max="99" step="1" aria-label="Slider Ambang Rendah">
+            <div class="num-input-wrap mono">
+              <input type="number" id="thresholdRendahInput" min="2" max="99" step="1" aria-label="Persentase Ambang Rendah">
+              <span>%</span>
+            </div>
+          </div>
+          <p class="threshold-response">Peringatan Visual Dispenser &amp; Web (Buzzer Diam)</p>
         </article>
       </div>
+
+      <!-- Validation + Save Strip -->
+      <article class="card">
+        <div class="validation-row" id="thresholdValidationBox" role="status" aria-live="polite">
+          <span class="chip is-valid mono" id="thresholdValidChip">VALID</span>
+          <span id="thresholdValidationMsg">Konfigurasi ambang memenuhi aturan 0 &le; HABIS &lt; KRITIS &lt; RENDAH &lt; 100 (+1% hysteresis pemulihan).</span>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="btn btn-secondary" id="resetThresholdsBtn">Reset ke Default (4 / 10 / 20)</button>
+          <button type="button" class="btn btn-primary" id="saveThresholdsBtn">Simpan Pengaturan</button>
+        </div>
+
+        <p class="demo-notice">
+          Catatan mode demo publik: tanpa autentikasi pengguna, siapa pun yang mengakses dashboard dapat mengubah ambang batas dan memicu kalibrasi tare.
+        </p>
+      </article>
     </section>
-
-    <!-- Panel Grafik Historis -->
-    <section class="panel" aria-labelledby="hChart">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">
-            <svg class="ic panel-ic" aria-hidden="true"><use href="#i-chart"/></svg>
-            <h2 id="hChart">Grafik Historis Volume Air</h2>
-          </div>
-          <p class="panel-sub">Pencatatan otomatis tiap pergantian jam, perubahan status, dan event perangkat</p>
-        </div>
-        <div class="chart-controls">
-          <div class="chart-stats" id="chartStats" aria-live="polite">
-            <span class="stat-pill">Titik: <strong id="stCount">0</strong></span>
-            <span class="stat-pill">Min: <strong id="stMin">—</strong></span>
-            <span class="stat-pill">Maks: <strong id="stMax">—</strong></span>
-          </div>
-          <div class="seg" role="group" aria-label="Rentang waktu">
-            <button type="button" data-range="24h" aria-pressed="true">24 JAM</button>
-            <button type="button" data-range="7d" aria-pressed="false">7 HARI</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="chart-wrap" id="chartWrap">
-        <svg id="chart" viewBox="0 0 640 260" role="img" aria-label="Grafik volume air"></svg>
-        <div id="chartTip" class="chart-tip" role="tooltip" hidden></div>
-        <div id="chartEmpty" class="empty" hidden>
-          <svg class="ic ic-lg" aria-hidden="true"><use href="#i-chart"/></svg>
-          <p>Belum ada data historis pada rentang ini.</p>
-          <span>Data tercatat saat pergantian jam atau perubahan status air.</span>
-        </div>
-      </div>
-
-      <div class="legend-bar">
-        <p class="legend">
-          <span><i class="lg lg-line"></i> Volume Air (L)</span>
-          <span><i class="lg lg-cap"></i> Kapasitas Saat Dicatat</span>
-        </p>
-        <p class="legend status-dots" aria-label="Warna titik status">
-          <span><i class="s-dot d-ok"></i> Normal</span>
-          <span><i class="s-dot d-warn"></i> Rendah</span>
-          <span><i class="s-dot d-crit"></i> Kritis</span>
-          <span><i class="s-dot d-empty"></i> Habis</span>
-        </p>
-      </div>
-    </section>
-
-    <!-- Panel Kontrol: Galon & Tare + Ambang Batas -->
-    <div class="grid2">
-      <section class="panel" aria-labelledby="hGal">
-        <div class="panel-title">
-          <svg class="ic panel-ic" aria-hidden="true"><use href="#i-tare"/></svg>
-          <h2 id="hGal">Pengaturan Galon &amp; Kalibrasi Tare</h2>
-        </div>
-        <p class="panel-sub">Pilih kapasitas galon aktif lalu lakukan tare saat galon kosong di atas timbangan</p>
-
-        <form id="capForm" novalidate>
-          <fieldset>
-            <legend>Pilih kapasitas galon aktif</legend>
-            <label class="opt">
-              <input type="radio" name="cap" value="5">
-              <div class="opt-body">
-                <span class="opt-title">5 L</span>
-                <span class="opt-desc">Galon sedang (5 kg air)</span>
-              </div>
-            </label>
-            <label class="opt">
-              <input type="radio" name="cap" value="10">
-              <div class="opt-body">
-                <span class="opt-title">10 L</span>
-                <span class="opt-desc">Galon besar (10 kg air)</span>
-              </div>
-            </label>
-          </fieldset>
-          <p class="note">Mengganti kapasitas menaikkan versi konfigurasi dan mewajibkan tare ulang.</p>
-          <button type="submit" id="capBtn" class="btn">Terapkan Kapasitas</button>
-        </form>
-
-        <hr>
-
-        <div class="tare-box">
-          <div class="tare-meta">
-            <div class="row">
-              <span class="meta-label">Status Tare:</span>
-              <span id="tareBadge" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></span>
-            </div>
-            <p class="hint" id="tareIdText">ID Tare: —</p>
-          </div>
-          <p id="tareMsg" class="note err-box" hidden></p>
-          <button type="button" id="tareBtn" class="btn btn-primary btn-block">
-            <svg class="ic" aria-hidden="true"><use href="#i-tare"/></svg>
-            <span>TARE GALON KOSONG</span>
-          </button>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="hThr">
-        <div class="panel-title">
-          <svg class="ic panel-ic" aria-hidden="true"><use href="#i-sliders"/></svg>
-          <h2 id="hThr">Pengaturan Ambang Status (%)</h2>
-        </div>
-        <p class="panel-sub">Ubah batas peringatan secara dinamis tanpa upload ulang firmware ESP32</p>
-
-        <form id="thrForm" novalidate>
-          <div class="thr-grid">
-            <div class="field f-habis">
-              <label for="thH">
-                <span class="f-tag s-empty">HABIS</span>
-                <span>Batas atas (%)</span>
-              </label>
-              <div class="input-suffix">
-                <input id="thH" type="number" inputmode="numeric" min="0" max="98" step="1" required>
-                <span aria-hidden="true">%</span>
-              </div>
-              <span class="field-hint" id="thHVol">≤ 0.20 L</span>
-            </div>
-
-            <div class="field f-kritis">
-              <label for="thK">
-                <span class="f-tag s-crit">KRITIS</span>
-                <span>Batas atas (%)</span>
-              </label>
-              <div class="input-suffix">
-                <input id="thK" type="number" inputmode="numeric" min="1" max="98" step="1" required>
-                <span aria-hidden="true">%</span>
-              </div>
-              <span class="field-hint" id="thKVol">0.20 – 0.50 L</span>
-            </div>
-
-            <div class="field f-rendah">
-              <label for="thR">
-                <span class="f-tag s-warn">RENDAH</span>
-                <span>Batas atas (%)</span>
-              </label>
-              <div class="input-suffix">
-                <input id="thR" type="number" inputmode="numeric" min="2" max="99" step="1" required>
-                <span aria-hidden="true">%</span>
-              </div>
-              <span class="field-hint" id="thRVol">0.50 – 1.00 L</span>
-            </div>
-          </div>
-
-          <div class="preview-zones" aria-label="Pratinjau pembagian zona status">
-            <div class="pz-head">
-              <span>Pratinjau Skala Status</span>
-              <span id="thNVol" class="hint">NORMAL &gt; 1.00 L</span>
-            </div>
-            <div class="zone-bar lg-zone" aria-hidden="true">
-              <span id="pHabis" class="z-seg z-h" style="width:4%"></span>
-              <span id="pKritis" class="z-seg z-k" style="width:6%"></span>
-              <span id="pRendah" class="z-seg z-r" style="width:10%"></span>
-              <span id="pNormal" class="z-seg z-n" style="width:80%"></span>
-            </div>
-          </div>
-
-          <p class="note">Syarat validasi: <strong>0 ≤ HABIS &lt; KRITIS &lt; RENDAH &lt; 100</strong> (+ hysteresis 1% saat pulih).</p>
-          <p id="thrErr" class="err" role="alert" hidden></p>
-          <button type="submit" id="thrBtn" class="btn btn-primary btn-block">SIMPAN KONFIGURASI</button>
-        </form>
-
-        <p class="note warn-note">
-          <svg class="ic" aria-hidden="true"><use href="#i-low"/></svg>
-          <span>Akses publik tanpa login: siapa pun yang memegang URL dapat mengubah kapasitas, ambang, dan tare. Matikan tunnel setelah pengujian.</span>
-        </p>
-      </section>
-    </div>
   </main>
 
-  <p id="toast" class="toast" role="status" aria-live="polite" hidden></p>
+  <footer class="footer">
+    <div class="footer-inner mono">
+      <span>Smart Water System • Hydro-Telemetry Mission Control</span>
+      <span id="footerSyncText">Polling interval: 1000 ms</span>
+    </div>
+  </footer>
 
-  <!-- Dialog Konfirmasi Tare Galon Kosong -->
-  <dialog id="tareDlg" aria-labelledby="tareTitle">
-    <form method="dialog" id="tareDlgForm">
-      <div class="dlg-head">
-        <span class="dlg-ic s-crit" aria-hidden="true"><svg class="ic"><use href="#i-tare"/></svg></span>
-        <h2 id="tareTitle">Tare Galon Kosong?</h2>
-      </div>
-      <p class="dlg-body">Prosedur tare menjadikan beban saat ini di timbangan sebagai <strong>titik nol (0.00 kg)</strong> dan menyimpannya ke memori NVS ESP32. Bila galon masih berisi air, sisa air tersebut akan dianggap 0 L.</p>
-      <label class="chk">
-        <input type="checkbox" id="tareChk">
-        <span>Saya memastikan galon di atas platform <strong>benar-benar kosong</strong> dan posisinya stabil.</span>
-      </label>
-      <div class="actions">
-        <button type="button" id="tareCancel" class="btn">Batal</button>
-        <button type="submit" id="tareOk" class="btn btn-danger" disabled>Ya, Jalankan Tare</button>
-      </div>
-    </form>
-  </dialog>
+  <!-- Toast Notification -->
+  <div class="toast mono" id="toastMsg" role="status" aria-live="polite" hidden></div>
 
-  <script src="js/dashboard.js?v=5"></script>
+  <!-- Tare Confirmation & Progress Modal -->
+  <div class="modal-backdrop" id="tareModal" role="dialog" aria-modal="true" aria-labelledby="tareModalTitle" hidden>
+    <div class="modal-card">
+      <div id="tareModalConfirmView">
+        <span class="eyebrow mono">Konfirmasi Perintah Perangkat</span>
+        <h2 id="tareModalTitle">Eksekusi Kalibrasi Tare (ESP32)</h2>
+        <p class="modal-desc">
+          Sistem akan mengirim perintah kalibrasi titik nol untuk galon <strong id="modalCapText">5 Liter</strong>.
+          Pastikan wadah di atas Load Cell benar-benar kosong.
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelTareModalBtn">Batal</button>
+          <button type="button" class="btn btn-primary" id="confirmTareSubmitBtn">Kirim Perintah Tare</button>
+        </div>
+      </div>
+
+      <div id="tareModalProgressView" hidden>
+        <span class="eyebrow mono">Sinkronisasi MQTT</span>
+        <h2>Menunggu Konfirmasi ESP32...</h2>
+        <p class="modal-desc" id="tareProgressMsg">Mengirim permintaan Tare ke broker MQTT.</p>
+        <div class="progress-track">
+          <div class="progress-fill" id="tareProgressBar" style="width: 100%"></div>
+        </div>
+        <div class="progress-meta mono">
+          <span>Sisa waktu tunggu:</span>
+          <strong id="tareCountdownText">60 detik</strong>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="closeTareProgressBtn">Tutup Jendela</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js?v=6"></script>
 </body>
 </html>
