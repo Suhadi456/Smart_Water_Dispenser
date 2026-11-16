@@ -4,129 +4,334 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Smart Water Dispenser</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>Smart Water Dispenser — Dashboard Monitoring IoT</title>
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
-  <!-- Ikon vektor (bukan emoji); dekoratif -> aria-hidden pada pemakaian -->
+  <!-- Sprite ikon vektor (stroke konsisten 2px, tanpa emoji) -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3s6 6.2 6 10.5A6 6 0 0 1 6 13.5C6 9.2 12 3 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8 12.5 3 3 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.8s6.5 6.6 6.5 11.2a6.5 6.5 0 0 1-13 0C5.5 9.4 12 2.8 12 2.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 14.5a2.8 2.8 0 0 0 2.5 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8 12.5 2.8 2.8 5.2-5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-low" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5v4.5M12 17v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-crit" viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 7.5v6M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-empty" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
-    <symbol id="i-tare" viewBox="0 0 24 24"><path d="M12 4v3M5 20h14M7 20l1.5-9h7L17 20M9 11a3 3 0 1 1 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-tare" viewBox="0 0 24 24"><path d="M12 3v4M5 20h14M6.5 20 8 10h8l1.5 10M9 10a3 3 0 1 1 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6 12.5a9.5 9.5 0 0 1 12 0M9 16a5 5 0 0 1 6 0M12 19.5v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 4-2.4M21 9a14 14 0 0 0-8-3M6 12.5a9.5 9.5 0 0 1 3-1.8M18 12.5a9.5 9.5 0 0 0-2.5-1.6M9 16a5 5 0 0 1 6 0M12 19.5v.01M4 4l16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14 16 10M4.9 19a9 9 0 1 1 14.2 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="14" r="1.5" fill="currentColor"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.2L5.2 17A2.5 2.5 0 0 0 7.4 21h9.2a2.5 2.5 0 0 0 2.2-4L14 8.2V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 15h10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="6" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="12" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/><circle cx="11" cy="18" r="2.2" fill="var(--card)" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19h16M4 15l4-4 4 2 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 2 5.3M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.4 14.5A8.5 8.5 0 0 1 9.5 3.6a8.5 8.5 0 1 0 10.9 10.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
   </svg>
 
-  <a class="skip" href="#main">Lewati ke konten</a>
+  <a class="skip" href="#main">Lewati ke konten utama</a>
 
-  <header class="top">
-    <div class="brand">
-      <svg class="ic ic-lg" aria-hidden="true"><use href="#i-drop"/></svg>
-      <div>
-        <h1>Smart Water Dispenser</h1>
-        <p class="sub"><span id="devCode">dispenser-001</span> · Level &amp; Refill Alert</p>
+  <div class="top-wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg class="ic ic-lg"><use href="#i-drop"/></svg>
+        </div>
+        <div>
+          <div class="brand-row">
+            <h1>Smart Water Dispenser</h1>
+            <span class="chip-meta" id="cfgMeta">Konfigurasi v1</span>
+          </div>
+          <p class="sub"><span id="devCode">dispenser-001</span> · Level &amp; Refill Alert System</p>
+        </div>
       </div>
-    </div>
-    <div class="badges" role="status" aria-live="polite">
-      <span id="conn" class="badge b-off"><svg class="ic" aria-hidden="true"><use href="#i-wifi-off"/></svg><span>MEMUAT…</span></span>
-      <span id="fresh" class="badge b-off"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>—</span></span>
-    </div>
-  </header>
+
+      <div class="top-right">
+        <div class="badges" role="status" aria-live="polite">
+          <span id="conn" class="badge b-off"><span class="dot" aria-hidden="true"></span><svg class="ic" aria-hidden="true"><use href="#i-wifi-off"/></svg><span>MEMUAT…</span></span>
+          <span id="fresh" class="badge b-off"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>—</span></span>
+        </div>
+        <div class="top-actions">
+          <button type="button" id="refreshBtn" class="icon-btn" aria-label="Segarkan data sekarang" title="Segarkan data sekarang">
+            <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>
+          </button>
+          <button type="button" id="themeBtn" class="icon-btn" aria-label="Ganti tema terang atau gelap" title="Ganti tema terang/gelap">
+            <svg class="ic" aria-hidden="true"><use id="themeIcon" href="#i-moon"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+  </div>
 
   <div id="banner" class="banner b-crit" role="alert" hidden></div>
 
   <main id="main">
     <div id="notice" class="notice" role="status" hidden></div>
 
-    <section class="cards" aria-label="Monitoring air">
-      <article class="card">
-        <h2>Volume Air</h2>
-        <p class="val"><span id="vol">--</span><span class="unit">L</span></p>
-        <p class="hint stale-tag" id="staleVol" hidden>DATA LAMA</p>
+    <!-- Bento Hero: Visualisasi Galon + 4 Kartu Metrik -->
+    <section class="hero-grid" aria-label="Monitoring air real-time">
+      <article class="panel tank-card" aria-label="Visualisasi tangki galon">
+        <div class="tank-head">
+          <span class="card-kicker">Visualisasi Galon</span>
+          <span id="tankCapTag" class="chip-meta">5 L</span>
+        </div>
+        <div class="tank-stage">
+          <div class="tank-vessel" id="tankVessel" data-status="NONE">
+            <div class="tank-neck" aria-hidden="true"></div>
+            <div class="tank-body">
+              <div class="tank-liquid" id="tankFill" style="height:0%">
+                <div class="tank-surface" aria-hidden="true"></div>
+              </div>
+              <!-- Garis penanda batas RENDAH, KRITIS, HABIS -->
+              <div class="tank-mark m-r" id="markR" style="bottom:20%"><span>R 20%</span></div>
+              <div class="tank-mark m-k" id="markK" style="bottom:10%"><span>K 10%</span></div>
+              <div class="tank-mark m-h" id="markH" style="bottom:4%"><span>H 4%</span></div>
+              <div class="tank-overlay">
+                <span class="tank-pct" id="tankPctText">--%</span>
+                <span class="tank-sub" id="tankVolText">Menunggu data</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </article>
-      <article class="card">
-        <h2>Persentase</h2>
-        <p class="val"><span id="pct">--</span><span class="unit">%</span></p>
-        <div class="bar" aria-hidden="true"><div id="pctBar"></div></div>
-      </article>
-      <article class="card">
-        <h2>Status Air</h2>
-        <p id="status" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></p>
-      </article>
-      <article class="card">
-        <h2>Kapasitas Galon</h2>
-        <p class="val"><span id="cap">--</span><span class="unit">L</span></p>
-        <p class="hint">Diperbarui: <time id="updated">—</time></p>
-      </article>
+
+      <div class="cards">
+        <article class="card">
+          <div class="card-top">
+            <h2>Volume Air</h2>
+            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-drop"/></svg></span>
+          </div>
+          <p class="val"><span id="vol">--</span><span class="unit">L</span></p>
+          <div class="card-foot">
+            <p class="hint" id="volRangeHint">Rentang 0.00 – 5.00 L</p>
+            <p class="hint stale-tag" id="staleVol" hidden>DATA LAMA</p>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <h2>Persentase</h2>
+            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-gauge"/></svg></span>
+          </div>
+          <p class="val"><span id="pct">--</span><span class="unit">%</span></p>
+          <div class="bar" aria-hidden="true"><div id="pctBar"></div></div>
+          <div class="zone-bar" aria-hidden="true">
+            <span id="zHabis" class="z-seg z-h" style="width:4%"></span>
+            <span id="zKritis" class="z-seg z-k" style="width:6%"></span>
+            <span id="zRendah" class="z-seg z-r" style="width:10%"></span>
+            <span id="zNormal" class="z-seg z-n" style="width:80%"></span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <h2>Status Air</h2>
+            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-info"/></svg></span>
+          </div>
+          <p id="status" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></p>
+          <p class="hint" id="actuatorHint">LED: OFF · Buzzer: Mati</p>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <h2>Kapasitas Galon</h2>
+            <span class="card-ic" aria-hidden="true"><svg class="ic"><use href="#i-flask"/></svg></span>
+          </div>
+          <p class="val"><span id="cap">--</span><span class="unit">L</span></p>
+          <p class="hint">Diperbarui: <time id="updated">—</time></p>
+        </article>
+      </div>
     </section>
 
+    <!-- Panel Grafik Historis -->
     <section class="panel" aria-labelledby="hChart">
       <div class="panel-head">
-        <h2 id="hChart">Grafik Volume</h2>
-        <div class="seg" role="group" aria-label="Rentang waktu">
-          <button type="button" data-range="24h" aria-pressed="true">24 JAM</button>
-          <button type="button" data-range="7d" aria-pressed="false">7 HARI</button>
+        <div>
+          <div class="panel-title">
+            <svg class="ic panel-ic" aria-hidden="true"><use href="#i-chart"/></svg>
+            <h2 id="hChart">Grafik Historis Volume Air</h2>
+          </div>
+          <p class="panel-sub">Pencatatan tiap pergantian jam, perubahan status, dan event perangkat (tanpa interpolasi)</p>
+        </div>
+        <div class="chart-controls">
+          <div class="chart-stats" id="chartStats" aria-live="polite">
+            <span class="stat-pill">Titik: <strong id="stCount">0</strong></span>
+            <span class="stat-pill">Min: <strong id="stMin">—</strong></span>
+            <span class="stat-pill">Maks: <strong id="stMax">—</strong></span>
+          </div>
+          <div class="seg" role="group" aria-label="Rentang waktu">
+            <button type="button" data-range="24h" aria-pressed="true">24 JAM</button>
+            <button type="button" data-range="7d" aria-pressed="false">7 HARI</button>
+          </div>
         </div>
       </div>
-      <div class="chart-wrap">
+
+      <div class="chart-wrap" id="chartWrap">
         <svg id="chart" viewBox="0 0 640 260" role="img" aria-label="Grafik volume air"></svg>
-        <p id="chartEmpty" class="empty" hidden>Belum ada data historis pada rentang ini.</p>
+        <div id="chartTip" class="chart-tip" role="tooltip" hidden></div>
+        <div id="chartEmpty" class="empty" hidden>
+          <svg class="ic ic-lg" aria-hidden="true"><use href="#i-chart"/></svg>
+          <p>Belum ada data historis pada rentang ini.</p>
+          <span>Data akan tercatat otomatis saat pergantian jam atau perubahan status air.</span>
+        </div>
       </div>
-      <p class="legend"><span class="lg lg-line"></span> Volume (L) <span class="lg lg-cap"></span> Kapasitas saat data dicatat</p>
+
+      <div class="legend-bar">
+        <p class="legend">
+          <span><i class="lg lg-line"></i> Volume Air (L)</span>
+          <span><i class="lg lg-cap"></i> Kapasitas Saat Dicatat</span>
+        </p>
+        <p class="legend status-dots" aria-label="Warna titik status">
+          <span><i class="s-dot d-ok"></i> Normal</span>
+          <span><i class="s-dot d-warn"></i> Rendah</span>
+          <span><i class="s-dot d-crit"></i> Kritis</span>
+          <span><i class="s-dot d-empty"></i> Habis</span>
+        </p>
+      </div>
     </section>
 
+    <!-- Panel Kontrol: Galon & Tare + Ambang Batas -->
     <div class="grid2">
       <section class="panel" aria-labelledby="hGal">
-        <h2 id="hGal">Pengaturan Galon &amp; Tare</h2>
+        <div class="panel-title">
+          <svg class="ic panel-ic" aria-hidden="true"><use href="#i-tare"/></svg>
+          <h2 id="hGal">Pengaturan Galon &amp; Kalibrasi Tare</h2>
+        </div>
+        <p class="panel-sub">Pilih ukuran wadah aktif lalu lakukan tare saat galon kosong berada di atas platform</p>
+
         <form id="capForm" novalidate>
           <fieldset>
-            <legend>Kapasitas galon</legend>
-            <label class="opt"><input type="radio" name="cap" value="5"> <span>5 L</span></label>
-            <label class="opt"><input type="radio" name="cap" value="10"> <span>10 L</span></label>
+            <legend>Pilih kapasitas galon aktif</legend>
+            <label class="opt">
+              <input type="radio" name="cap" value="5">
+              <div class="opt-body">
+                <span class="opt-title">5 L</span>
+                <span class="opt-desc">Galon sedang (5 kg air)</span>
+              </div>
+            </label>
+            <label class="opt">
+              <input type="radio" name="cap" value="10">
+              <div class="opt-body">
+                <span class="opt-title">10 L</span>
+                <span class="opt-desc">Galon besar (10 kg air)</span>
+              </div>
+            </label>
           </fieldset>
-          <p class="note">Mengganti kapasitas mewajibkan tare ulang dengan galon kosong.</p>
+          <p class="note">Mengganti kapasitas otomatis menaikkan versi konfigurasi dan mewajibkan tare ulang.</p>
           <button type="submit" id="capBtn" class="btn">Terapkan Kapasitas</button>
         </form>
+
         <hr>
-        <p class="row">Status tare: <span id="tareBadge" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></span></p>
-        <p id="tareMsg" class="note" hidden></p>
-        <button type="button" id="tareBtn" class="btn btn-primary"><svg class="ic" aria-hidden="true"><use href="#i-tare"/></svg><span>TARE GALON KOSONG</span></button>
+
+        <div class="tare-box">
+          <div class="tare-meta">
+            <div class="row">
+              <span class="meta-label">Status Tare:</span>
+              <span id="tareBadge" class="pill s-none"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>--</span></span>
+            </div>
+            <p class="hint" id="tareIdText">ID Tare: —</p>
+          </div>
+          <p id="tareMsg" class="note err-box" hidden></p>
+          <button type="button" id="tareBtn" class="btn btn-primary btn-block">
+            <svg class="ic" aria-hidden="true"><use href="#i-tare"/></svg>
+            <span>TARE GALON KOSONG</span>
+          </button>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="hThr">
-        <h2 id="hThr">Batas Status (%)</h2>
+        <div class="panel-title">
+          <svg class="ic panel-ic" aria-hidden="true"><use href="#i-sliders"/></svg>
+          <h2 id="hThr">Pengaturan Ambang Status (%)</h2>
+        </div>
+        <p class="panel-sub">Ubah batas peringatan secara dinamis tanpa upload ulang firmware ESP32</p>
+
         <form id="thrForm" novalidate>
-          <div class="field"><label for="thH">HABIS bila ≤</label><input id="thH" type="number" inputmode="numeric" min="0" max="98" step="1" required></div>
-          <div class="field"><label for="thK">KRITIS bila ≤</label><input id="thK" type="number" inputmode="numeric" min="1" max="98" step="1" required></div>
-          <div class="field"><label for="thR">RENDAH bila ≤</label><input id="thR" type="number" inputmode="numeric" min="2" max="99" step="1" required></div>
-          <p class="note">Aturan: 0 ≤ HABIS &lt; KRITIS &lt; RENDAH &lt; 100. Di atas RENDAH = NORMAL.</p>
+          <div class="thr-grid">
+            <div class="field f-habis">
+              <label for="thH">
+                <span class="f-tag s-empty">HABIS</span>
+                <span>Batas atas (%)</span>
+              </label>
+              <div class="input-suffix">
+                <input id="thH" type="number" inputmode="numeric" min="0" max="98" step="1" required>
+                <span aria-hidden="true">%</span>
+              </div>
+              <span class="field-hint" id="thHVol">≤ 0.20 L</span>
+            </div>
+
+            <div class="field f-kritis">
+              <label for="thK">
+                <span class="f-tag s-crit">KRITIS</span>
+                <span>Batas atas (%)</span>
+              </label>
+              <div class="input-suffix">
+                <input id="thK" type="number" inputmode="numeric" min="1" max="98" step="1" required>
+                <span aria-hidden="true">%</span>
+              </div>
+              <span class="field-hint" id="thKVol">0.20 – 0.50 L</span>
+            </div>
+
+            <div class="field f-rendah">
+              <label for="thR">
+                <span class="f-tag s-warn">RENDAH</span>
+                <span>Batas atas (%)</span>
+              </label>
+              <div class="input-suffix">
+                <input id="thR" type="number" inputmode="numeric" min="2" max="99" step="1" required>
+                <span aria-hidden="true">%</span>
+              </div>
+              <span class="field-hint" id="thRVol">0.50 – 1.00 L</span>
+            </div>
+          </div>
+
+          <div class="preview-zones" aria-label="Pratinjau pembagian zona status">
+            <div class="pz-head">
+              <span>Pratinjau Skala Status</span>
+              <span id="thNVol" class="hint">NORMAL &gt; 1.00 L</span>
+            </div>
+            <div class="zone-bar lg-zone" aria-hidden="true">
+              <span id="pHabis" class="z-seg z-h" style="width:4%"></span>
+              <span id="pKritis" class="z-seg z-k" style="width:6%"></span>
+              <span id="pRendah" class="z-seg z-r" style="width:10%"></span>
+              <span id="pNormal" class="z-seg z-n" style="width:80%"></span>
+            </div>
+          </div>
+
+          <p class="note">Syarat validasi: <strong>0 ≤ HABIS &lt; KRITIS &lt; RENDAH &lt; 100</strong> (+ hysteresis 1% saat pulih).</p>
           <p id="thrErr" class="err" role="alert" hidden></p>
-          <button type="submit" id="thrBtn" class="btn btn-primary">SIMPAN KONFIGURASI</button>
+          <button type="submit" id="thrBtn" class="btn btn-primary btn-block">SIMPAN KONFIGURASI</button>
         </form>
-        <p class="note warn-note">Dashboard ini tanpa login: siapa pun yang memegang URL dapat mengubah kapasitas, ambang, dan tare. Hentikan tunnel setelah demo.</p>
+
+        <p class="note warn-note">
+          <svg class="ic" aria-hidden="true"><use href="#i-low"/></svg>
+          <span>Mode demo publik tanpa login: siapa pun yang memegang URL dapat mengubah kapasitas, ambang, dan tare. Matikan tunnel setelah pengujian.</span>
+        </p>
       </section>
     </div>
   </main>
 
   <p id="toast" class="toast" role="status" aria-live="polite" hidden></p>
 
+  <!-- Dialog Konfirmasi Tare Galon Kosong -->
   <dialog id="tareDlg" aria-labelledby="tareTitle">
     <form method="dialog" id="tareDlgForm">
-      <h2 id="tareTitle">Tare galon kosong?</h2>
-      <p>Tare menjadikan berat yang ada di timbangan sebagai <strong>titik nol</strong>. Bila galon masih berisi air, air itu akan dianggap 0 L dan semua pembacaan berikutnya salah.</p>
-      <label class="chk"><input type="checkbox" id="tareChk"> <span>Saya memastikan galon <strong>benar-benar kosong</strong> dan sudah terpasang di timbangan.</span></label>
+      <div class="dlg-head">
+        <span class="dlg-ic s-crit" aria-hidden="true"><svg class="ic"><use href="#i-tare"/></svg></span>
+        <h2 id="tareTitle">Tare Galon Kosong?</h2>
+      </div>
+      <p class="dlg-body">Prosedur tare menjadikan beban saat ini di atas timbangan sebagai <strong>titik nol (0.00 kg)</strong> dan menyimpannya ke memori NVS ESP32. Bila galon masih berisi air, sisa air tersebut akan dianggap 0 L.</p>
+      <label class="chk">
+        <input type="checkbox" id="tareChk">
+        <span>Saya memastikan galon di atas platform <strong>benar-benar kosong</strong> dan posisi dudukannya stabil.</span>
+      </label>
       <div class="actions">
         <button type="button" id="tareCancel" class="btn">Batal</button>
-        <button type="submit" id="tareOk" class="btn btn-danger" disabled>Ya, jalankan tare</button>
+        <button type="submit" id="tareOk" class="btn btn-danger" disabled>Ya, Jalankan Tare</button>
       </div>
     </form>
   </dialog>
 
-  <script src="js/dashboard.js?v=2"></script>
+  <script src="js/dashboard.js?v=3"></script>
 </body>
 </html>

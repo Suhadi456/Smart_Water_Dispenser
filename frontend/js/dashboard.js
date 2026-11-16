@@ -1,24 +1,41 @@
 'use strict';
-// Dashboard tunggal: polling REST API Express (~10 dtk). Tidak ada koneksi langsung ke broker MQTT.
+// Dashboard tunggal: polling REST API Express (1 dtk). Tidak ada koneksi langsung ke broker MQTT.
 const $ = (s) => document.querySelector(s);
-const POLL_MS = 1000; // polling setiap 1 detik agar pembaruan instan
+const POLL_MS = 1000;
 const CHART_REFRESH_MS = 30000;
 const GAP_MS = 2.5 * 3600e3; // lebih dari ini tanpa data -> garis diputus (tidak diinterpolasi)
 
 const STATUS = {
-  NORMAL: { cls: 's-ok', icon: 'i-check' },
-  RENDAH: { cls: 's-warn', icon: 'i-low' },
-  KRITIS: { cls: 's-crit', icon: 'i-crit' },
-  HABIS: { cls: 's-empty', icon: 'i-empty' },
+  NORMAL: { cls: 's-ok', icon: 'i-check', dot: 'var(--ok-dot)', act: 'LED: OFF · Buzzer: Mati' },
+  RENDAH: { cls: 's-warn', icon: 'i-low', dot: 'var(--warn-dot)', act: 'LED: Kedip 1 dtk · Buzzer: 1x / 10 mnt' },
+  KRITIS: { cls: 's-crit', icon: 'i-crit', dot: 'var(--crit-dot)', act: 'LED: Kedip 200 ms · Buzzer: 2x / 5 mnt' },
+  HABIS:  { cls: 's-empty', icon: 'i-empty', dot: 'var(--empty-dot)', act: 'LED: ON Konstan · Buzzer: 3x / 2 mnt' },
 };
 const STATE_VIEW = {
-  TARE_REQUIRED: { text: 'BUTUH TARE', cls: 's-warn', icon: 'i-tare' },
-  TARE_IN_PROGRESS: { text: 'MEMPROSES TARE', cls: 's-none', icon: 'i-tare' },
-  TARE_FAILED: { text: 'TARE GAGAL', cls: 's-crit', icon: 'i-crit' },
-  SENSOR_ERROR: { text: 'SENSOR ERROR', cls: 's-crit', icon: 'i-crit' },
+  TARE_REQUIRED:    { text: 'BUTUH TARE', cls: 's-warn', icon: 'i-tare', act: 'LED: Standby · Buzzer: Dihentikan' },
+  TARE_IN_PROGRESS: { text: 'MEMPROSES TARE', cls: 's-none', icon: 'i-tare', act: 'LED: Standby · Buzzer: Dihentikan' },
+  TARE_FAILED:      { text: 'TARE GAGAL', cls: 's-crit', icon: 'i-crit', act: 'LED: Standby · Buzzer: Dihentikan' },
+  SENSOR_ERROR:     { text: 'SENSOR ERROR', cls: 's-crit', icon: 'i-crit', act: 'LED: 3 Pulsa Cepat · Buzzer: Dihentikan' },
 };
 
 const ui = { range: '24h', capDirty: false, thrDirty: false, last: null };
+
+// ---- Tema Terang / Gelap ----
+function applyTheme(t) {
+  const root = document.documentElement;
+  if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t);
+  else root.removeAttribute('data-theme');
+  const isDark = t === 'dark' || (!t && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  $('#themeIcon')?.setAttribute('href', isDark ? '#i-sun' : '#i-moon');
+}
+try { applyTheme(localStorage.getItem('swd_theme')); } catch { applyTheme(null); }
+$('#themeBtn')?.addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const sysDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const next = cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark');
+  try { localStorage.setItem('swd_theme', next); } catch { /* abaikan bila storage diblokir */ }
+  applyTheme(next);
+});
 
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, {
@@ -39,7 +56,7 @@ function setPill(el, cls, icon, text) {
 function setBadge(el, cls, icon, text) {
   el.className = `badge ${cls}`;
   el.querySelector('use').setAttribute('href', '#' + icon);
-  el.querySelector('span').textContent = text;
+  el.querySelector('span:last-child').textContent = text;
 }
 const ageText = (iso, now) => {
   if (!iso) return 'belum ada data';
@@ -72,10 +89,31 @@ function notice(kind, text, busy = false) {
   n.append(p);
 }
 
+function updateZoneBars(h, k, r, cap) {
+  const ok = [h, k, r].every(Number.isInteger) && h >= 0 && h < k && k < r && r < 100;
+  if (!ok) return;
+  const wH = h, wK = k - h, wR = r - k, wN = 100 - r;
+  for (const [id, w] of [['#zHabis', wH], ['#zKritis', wK], ['#zRendah', wR], ['#zNormal', wN],
+                         ['#pHabis', wH], ['#pKritis', wK], ['#pRendah', wR], ['#pNormal', wN]]) {
+    const el = $(id);
+    if (el) el.style.width = `${w}%`;
+  }
+  const c = cap || ui.last?.capacity_liter || 5;
+  const toL = (p) => ((p / 100) * c).toFixed(2);
+  if ($('#thHVol')) $('#thHVol').textContent = `≤ ${toL(h)} L`;
+  if ($('#thKVol')) $('#thKVol').textContent = `> ${toL(h)} – ${toL(k)} L`;
+  if ($('#thRVol')) $('#thRVol').textContent = `> ${toL(k)} – ${toL(r)} L`;
+  if ($('#thNVol')) $('#thNVol').textContent = `NORMAL > ${toL(r)} L`;
+  if ($('#markH')) { $('#markH').style.bottom = `${h}%`; $('#markH span').textContent = `H ${h}%`; }
+  if ($('#markK')) { $('#markK').style.bottom = `${k}%`; $('#markK span').textContent = `K ${k}%`; }
+  if ($('#markR')) { $('#markR').style.bottom = `${r}%`; $('#markR span').textContent = `R ${r}%`; }
+}
+
 function render(m) {
   ui.last = m;
   const now = new Date(m.server_time).getTime();
   $('#devCode').textContent = m.device_code;
+  if ($('#cfgMeta')) $('#cfgMeta').textContent = `Konfigurasi v${m.config_version}`;
   $('#banner').hidden = true;
 
   const online = m.connection === 'ONLINE';
@@ -89,15 +127,29 @@ function render(m) {
   document.querySelectorAll('.card').forEach((c) => c.classList.toggle('stale', stale));
   $('#staleVol').hidden = !stale;
   $('#vol').textContent = hasValue ? m.volume_liter.toFixed(2) : '--';
+  if ($('#volRangeHint')) $('#volRangeHint').textContent = `Kapasitas penuh ${m.capacity_liter.toFixed(2)} L`;
   $('#pct').textContent = hasValue ? String(Math.round(m.percentage)) : '--';
   $('#pctBar').style.width = hasValue ? `${m.percentage}%` : '0%';
   $('#cap').textContent = m.capacity_liter;
   $('#updated').textContent = m.latest_at ? new Date(m.latest_at).toLocaleString('id-ID') : '—';
 
+  // Tangki galon visual
+  if ($('#tankCapTag')) $('#tankCapTag').textContent = `${m.capacity_liter} L`;
+  if ($('#tankFill')) $('#tankFill').style.height = hasValue ? `${Math.max(0, Math.min(100, m.percentage))}%` : '0%';
+  if ($('#tankVessel')) $('#tankVessel').setAttribute('data-status', hasValue && m.water_status ? m.water_status : 'NONE');
+  if ($('#tankPctText')) $('#tankPctText').textContent = hasValue ? `${Math.round(m.percentage)}%` : '--%';
+  if ($('#tankVolText')) {
+    $('#tankVolText').textContent = hasValue
+      ? `${m.volume_liter.toFixed(2)} / ${m.capacity_liter} L`
+      : (STATE_VIEW[ds]?.text || 'Menunggu data');
+  }
+
   if (hasValue && STATUS[m.water_status]) {
     setPill($('#status'), STATUS[m.water_status].cls, STATUS[m.water_status].icon, m.water_status + (stale ? ' (data lama)' : ''));
+    if ($('#actuatorHint')) $('#actuatorHint').textContent = online ? STATUS[m.water_status].act : 'LED: 3 Pulsa · Buzzer: Dihentikan (Offline)';
   } else if (STATE_VIEW[ds]) {
     setPill($('#status'), STATE_VIEW[ds].cls, STATE_VIEW[ds].icon, STATE_VIEW[ds].text);
+    if ($('#actuatorHint')) $('#actuatorHint').textContent = STATE_VIEW[ds].act;
   } else {
     setPill($('#status'), 's-none', 'i-info', '--');
   }
@@ -121,6 +173,7 @@ function render(m) {
 
   setPill($('#tareBadge'), ...(m.tare_state === 'READY' ? ['s-ok', 'i-check', 'READY']
     : [STATE_VIEW[m.tare_state].cls, STATE_VIEW[m.tare_state].icon, STATE_VIEW[m.tare_state].text]));
+  if ($('#tareIdText')) $('#tareIdText').textContent = `ID Tare: ${m.tare_id || '—'}`;
   const msg = $('#tareMsg');
   msg.hidden = !(m.tare_state === 'TARE_FAILED' && m.tare_message);
   msg.textContent = m.tare_message || '';
@@ -132,6 +185,7 @@ function render(m) {
     $('#thH').value = m.threshold_habis_pct;
     $('#thK').value = m.threshold_kritis_pct;
     $('#thR').value = m.threshold_rendah_pct;
+    updateZoneBars(m.threshold_habis_pct, m.threshold_kritis_pct, m.threshold_rendah_pct, m.capacity_liter);
   }
 }
 
@@ -151,6 +205,13 @@ async function refresh() {
   }
 }
 
+$('#refreshBtn')?.addEventListener('click', async () => {
+  const btn = $('#refreshBtn');
+  btn.classList.add('spinning');
+  await Promise.all([refresh(), drawChart()]);
+  setTimeout(() => btn.classList.remove('spinning'), 450);
+});
+
 // ---- Grafik (SVG): titik pada timestamp asli, garis putus pada celah, kapasitas sebagai garis tangga ----
 const NS = 'http://www.w3.org/2000/svg';
 const el = (name, attrs = {}, text) => {
@@ -162,23 +223,45 @@ const el = (name, attrs = {}, text) => {
 
 async function drawChart() {
   const svg = $('#chart');
+  const tip = $('#chartTip');
+  if (tip) tip.hidden = true;
   let data;
   try {
     data = await api('/readings?range=' + ui.range);
-  } catch (e) {
+  } catch {
     return;
   }
   const rows = data.readings.map((r) => ({ ...r, t: new Date(r.recorded_at).getTime() }));
   svg.replaceChildren();
   $('#chartEmpty').hidden = rows.length > 0;
-  if (!rows.length) return;
+  if ($('#stCount')) $('#stCount').textContent = String(rows.length);
+  if (!rows.length) {
+    if ($('#stMin')) $('#stMin').textContent = '—';
+    if ($('#stMax')) $('#stMax').textContent = '—';
+    return;
+  }
 
-  const W = 640, H = 260, L = 44, R = 12, T = 12, B = 30;
+  const vols = rows.map((r) => r.volume_liter);
+  if ($('#stMin')) $('#stMin').textContent = `${Math.min(...vols).toFixed(2)} L`;
+  if ($('#stMax')) $('#stMax').textContent = `${Math.max(...vols).toFixed(2)} L`;
+
+  const W = 640, H = 260, L = 44, R = 14, T = 14, B = 30;
   const span = ui.range === '7d' ? 7 * 24 * 3600e3 : 24 * 3600e3;
   const t1 = Date.now(), t0 = t1 - span;
   const maxCap = Math.max(5, ...rows.map((r) => r.capacity_liter));
   const x = (t) => L + ((t - t0) / span) * (W - L - R);
   const y = (v) => T + (1 - v / maxCap) * (H - T - B);
+  const baseY = y(0);
+
+  // Gradien area di bawah kurva
+  const defs = el('defs');
+  const grad = el('linearGradient', { id: 'chartAreaGrad', x1: '0', y1: '0', x2: '0', y2: '1' });
+  grad.append(
+    el('stop', { offset: '0%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.26' }),
+    el('stop', { offset: '100%', 'stop-color': 'var(--chart-line)', 'stop-opacity': '0.0' }),
+  );
+  defs.append(grad);
+  svg.append(defs);
 
   for (let v = 0; v <= maxCap; v += maxCap / 5) {
     svg.append(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--chart-grid)' }));
@@ -199,16 +282,44 @@ async function drawChart() {
   cap += `H${x(t1)}`;
   svg.append(el('path', { d: cap, fill: 'none', stroke: 'var(--chart-cap)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }));
 
-  // volume: segmen dipisah bila ada celah besar
-  let path = '';
+  // volume: segmen dipisah bila ada celah besar (tanpa interpolasi)
+  let path = '', area = '', segStart = null;
   rows.forEach((r, i) => {
+    const px = x(r.t).toFixed(1), py = y(r.volume_liter).toFixed(1);
     const gap = i === 0 || r.t - rows[i - 1].t > GAP_MS;
-    path += `${gap ? 'M' : 'L'}${x(r.t).toFixed(1)},${y(r.volume_liter).toFixed(1)}`;
+    if (gap) {
+      if (segStart !== null && i > segStart + 1) {
+        area += `L${x(rows[i - 1].t).toFixed(1)},${baseY.toFixed(1)}L${x(rows[segStart].t).toFixed(1)},${baseY.toFixed(1)}Z`;
+      }
+      segStart = i;
+      path += `M${px},${py}`;
+      area += `M${px},${py}`;
+    } else {
+      path += `L${px},${py}`;
+      area += `L${px},${py}`;
+    }
   });
+  if (segStart !== null && rows.length > segStart + 1) {
+    area += `L${x(rows[rows.length - 1].t).toFixed(1)},${baseY.toFixed(1)}L${x(rows[segStart].t).toFixed(1)},${baseY.toFixed(1)}Z`;
+    svg.append(el('path', { d: area, fill: 'url(#chartAreaGrad)' }));
+  }
+
   svg.append(el('path', { d: path, fill: 'none', stroke: 'var(--chart-line)', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
   for (const r of rows) {
-    const c = el('circle', { cx: x(r.t), cy: y(r.volume_liter), r: 3.5, fill: 'var(--chart-line)' });
-    c.append(el('title', {}, `${new Date(r.t).toLocaleString('id-ID')}\n${r.volume_liter.toFixed(2)} L (${r.percentage}%) dari kapasitas ${r.capacity_liter} L\n${r.water_status || ''} · ${r.record_reason}`));
+    const cx = x(r.t), cy = y(r.volume_liter);
+    const dotColor = STATUS[r.water_status]?.dot || 'var(--chart-line)';
+    const label = `${new Date(r.t).toLocaleString('id-ID')}\n${r.volume_liter.toFixed(2)} L (${r.percentage}%) dari kapasitas ${r.capacity_liter} L\n${r.water_status || ''} · ${r.record_reason}`;
+    const c = el('circle', { cx, cy, r: 4.5, fill: dotColor, stroke: 'var(--card)', 'stroke-width': 1.8 });
+    c.append(el('title', {}, label));
+    if (tip) {
+      c.addEventListener('mouseenter', () => {
+        tip.textContent = label;
+        tip.style.left = `${(cx / W) * 100}%`;
+        tip.style.top = `${(cy / H) * 100}%`;
+        tip.hidden = false;
+      });
+      c.addEventListener('mouseleave', () => { tip.hidden = true; });
+    }
     svg.append(c);
   }
   const last = rows[rows.length - 1];
@@ -224,8 +335,16 @@ document.querySelectorAll('.seg button').forEach((b) =>
   }));
 
 // ---- Form ----
-document.querySelectorAll('input[name=cap]').forEach((r) => r.addEventListener('change', () => (ui.capDirty = true)));
-['#thH', '#thK', '#thR'].forEach((s) => $(s).addEventListener('input', () => { ui.thrDirty = true; $(s).removeAttribute('aria-invalid'); }));
+document.querySelectorAll('input[name=cap]').forEach((r) => r.addEventListener('change', () => {
+  ui.capDirty = true;
+  const v = Number(document.querySelector('input[name=cap]:checked')?.value);
+  updateZoneBars(Number($('#thH').value), Number($('#thK').value), Number($('#thR').value), v);
+}));
+['#thH', '#thK', '#thR'].forEach((s) => $(s).addEventListener('input', () => {
+  ui.thrDirty = true;
+  $(s).removeAttribute('aria-invalid');
+  updateZoneBars(Number($('#thH').value), Number($('#thK').value), Number($('#thR').value));
+}));
 
 async function mutate(btn, fn, okMsg) {
   btn.disabled = true;
