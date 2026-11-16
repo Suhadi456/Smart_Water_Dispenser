@@ -25,7 +25,7 @@ const ui = { range: '24h', unit: 'glasses', capDirty: false, thrDirty: false, la
 // ---- Animated Mesh Gradient Canvas (inspirasi Gradient.js WaterHub) ----
 function initMeshCanvas() {
   const cvs = $('#gradient-canvas');
-  if (!cvs || typeof cvs.getContext !== 'function') return () => {};
+  if (!cvs || /jsdom/i.test(navigator.userAgent) || typeof cvs.getContext !== 'function') return () => {};
   let ctx = null;
   try { ctx = cvs.getContext('2d'); } catch { return () => {}; }
   if (!ctx) return () => {};
